@@ -409,7 +409,7 @@ export default function RapportMensuelPage() {
                     Imprimer / PDF
                   </button>
 
-                  <button
+                  {/* <button
                     onClick={handleDownloadCSV}
                     disabled={loading}
                     className="flex items-center justify-center bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-6 rounded-lg transition-all duration-200 transform hover:scale-105 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
@@ -418,7 +418,7 @@ export default function RapportMensuelPage() {
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                     </svg>
                     Exporter CSV
-                  </button>
+                  </button> */}
                 </div>
               </div>
             </div>
