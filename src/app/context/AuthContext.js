@@ -22,10 +22,17 @@ export function AuthProvider({ children }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, logout }}>
-      {!loading && children}
+    <AuthContext.Provider value={{ user, logout, loading }}>
+      {loading ? (
+        <div className="flex items-center justify-center min-h-screen">
+          <p>Chargement...</p>
+        </div>
+      ) : (
+        children
+      )}
     </AuthContext.Provider>
   );
 }
 
+// ✅ Ne pas oublier cet export
 export const useAuth = () => useContext(AuthContext);
