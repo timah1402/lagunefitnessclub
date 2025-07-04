@@ -145,7 +145,7 @@ export default function PaiementsPage() {
                   <div className="space-y-2">
                     <label className="text-gray-700 font-semibold flex items-center gap-2">
                       <Clock className="w-4 h-4 text-gray-500" />
-                      Durée de l'abonnement
+                     Durée de l&apos;abonnement
                     </label>
                     <select
                       className="w-full border-2 border-gray-200 p-4 rounded-xl focus:outline-none focus:border-purple-500 focus:ring-4 focus:ring-purple-100 transition-all bg-gray-50 focus:bg-white"

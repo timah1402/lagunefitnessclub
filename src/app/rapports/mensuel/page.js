@@ -379,7 +379,7 @@ export default function RapportMensuelPage() {
                       Aucune transaction ce mois
                     </h3>
                     <p className="text-gray-500">
-                      Aucun paiement n'a été enregistré pour ce mois.
+                      Aucun paiement n&apos;a été enregistré pour ce mois.
                     </p>
                   </div>
                 )}

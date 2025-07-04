@@ -160,7 +160,7 @@ export default function LoginPage() {
           {/* Footer */}
           <div className="text-center mt-6">
             <p className="text-sm text-gray-500">
-              Besoin d'aide ? Contactez l'administrateur
+              Besoin d&apos;aide ? Contactez l&apos;administrateur
             </p>
           </div>
         </div>

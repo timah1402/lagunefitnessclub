@@ -27,17 +27,14 @@ export default function DashboardPage() {
   const [dataGraph, setDataGraph] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // ✅ Redirection sécurisée dans un effet
+  // Déplacé avant les autres useEffect
   useEffect(() => {
     if (user === null) {
       router.push("/login");
     }
   }, [user, router]);
 
-  if (!user) {
-    return null; // Bloque l'affichage en attendant la redirection
-  }
-
+  // Tous les useEffect doivent être appelés de manière inconditionnelle
   useEffect(() => {
     const fetchNotifications = async () => {
       const snap = await getDocs(collection(db, "abonnements"));
@@ -135,6 +132,18 @@ export default function DashboardPage() {
     fetchFrequentation();
   }, []);
 
+  // Affichage conditionnel après tous les hooks
+  if (!user) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Vérification de la connexion...</p>
+        </div>
+      </div>
+    );
+  }
+
   const StatCard = ({ title, value, icon: Icon, color, trend }) => (
     <div className="bg-white rounded-xl shadow-lg p-6 transform hover:scale-105 transition-all duration-300 border-l-4" 
          style={{ borderLeftColor: color }}>
@@ -224,7 +233,7 @@ export default function DashboardPage() {
             </div>
             <div className="flex items-center space-x-4">
               <div className="text-right">
-                <p className="text-sm text-gray-500">Aujourd'hui</p>
+                <p className="text-sm text-gray-500">Aujourd&apos;hui</p>
                 <p className="text-lg font-semibold text-gray-900">
                   {new Date().toLocaleDateString('fr-FR', { 
                     weekday: 'long', 

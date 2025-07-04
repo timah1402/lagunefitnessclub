@@ -27,6 +27,81 @@ export default function RapportsPage() {
   const [revenus, setRevenus] = useState({ jour: 0, mois: 0, annee: 0 });
   const [frequentation, setFrequentation] = useState([]);
 
+  // Charger les rapports financiers
+  const fetchRevenus = async () => {
+    try {
+      const today = new Date();
+      const jour = today.getDate();
+      const mois = today.getMonth() + 1;
+      const annee = today.getFullYear();
+      const rapportId = `${jour}-${mois}-${annee}`;
+
+      const rapportRef = doc(db, "rapports", rapportId);
+      const rapportSnap = await getDoc(rapportRef);
+
+      let totalJour = 0;
+      let totalMois = 0;
+      let totalAnnee = 0;
+
+      if (rapportSnap.exists()) {
+        const data = rapportSnap.data();
+        totalJour = data.total_journalier || 0;
+        totalMois = data.total_mensuel || 0;
+        totalAnnee = data.total_annuel || 0;
+      }
+
+      setRevenus({
+        jour: totalJour,
+        mois: totalMois,
+        annee: totalAnnee,
+      });
+    } catch (error) {
+      console.error("Erreur lors du chargement des revenus:", error);
+    }
+  };
+
+  // Charger la fréquentation quotidienne
+  const fetchFrequentation = async () => {
+    try {
+      const days = 7;
+      const data = [];
+
+      for (let i = days - 1; i >= 0; i--) {
+        const date = new Date();
+        date.setDate(date.getDate() - i);
+        const dayStr = date.toISOString().split("T")[0]; // "YYYY-MM-DD"
+
+        const dayStart = `${dayStr}T00:00:00Z`;
+        const dayEnd = `${dayStr}T23:59:59Z`;
+
+        const presencesQuery = query(
+          collection(db, "presences"),
+          where("date", ">=", dayStart),
+          where("date", "<=", dayEnd)
+        );
+        const snapshot = await getDocs(presencesQuery);
+
+        data.push({
+          date: `${date.getDate()}/${date.getMonth() + 1}`,
+          nombre: snapshot.size,
+        });
+      }
+
+      setFrequentation(data);
+    } catch (error) {
+      console.error("Erreur lors du chargement de la fréquentation:", error);
+    }
+  };
+
+  // Move all useEffect hooks to the top, before any conditional returns
+  useEffect(() => {
+    if (user) {
+      fetchRevenus();
+      fetchFrequentation();
+    }
+  }, [user]);
+
+  // Check authentication after all hooks
   if (!user) {
     router.push("/login");
     return null;
@@ -90,80 +165,6 @@ export default function RapportsPage() {
       setLoading(false);
     }
   };
-
-  // Charger les rapports financiers
-  const fetchRevenus = async () => {
-    try {
-      const today = new Date();
-      const jour = today.getDate();
-      const mois = today.getMonth() + 1;
-      const annee = today.getFullYear();
-      const rapportId = `${jour}-${mois}-${annee}`;
-
-      const rapportRef = doc(db, "rapports", rapportId);
-      const rapportSnap = await getDoc(rapportRef);
-
-      let totalJour = 0;
-      let totalMois = 0;
-      let totalAnnee = 0;
-
-      if (rapportSnap.exists()) {
-        const data = rapportSnap.data();
-        totalJour = data.total_journalier || 0;
-        totalMois = data.total_mensuel || 0;
-        totalAnnee = data.total_annuel || 0;
-      }
-
-      setRevenus({
-        jour: totalJour,
-        mois: totalMois,
-        annee: totalAnnee,
-      });
-    } catch (error) {
-      console.error("Erreur lors du chargement des revenus:", error);
-    }
-  };
-
-  useEffect(() => {
-    fetchRevenus();
-  }, []);
-
-  // Charger la fréquentation quotidienne
-  useEffect(() => {
-    const fetchFrequentation = async () => {
-      try {
-        const days = 7;
-        const data = [];
-
-        for (let i = days - 1; i >= 0; i--) {
-          const date = new Date();
-          date.setDate(date.getDate() - i);
-          const dayStr = date.toISOString().split("T")[0]; // "YYYY-MM-DD"
-
-          const dayStart = `${dayStr}T00:00:00Z`;
-          const dayEnd = `${dayStr}T23:59:59Z`;
-
-          const presencesQuery = query(
-            collection(db, "presences"),
-            where("date", ">=", dayStart),
-            where("date", "<=", dayEnd)
-          );
-          const snapshot = await getDocs(presencesQuery);
-
-          data.push({
-            date: `${date.getDate()}/${date.getMonth() + 1}`,
-            nombre: snapshot.size,
-          });
-        }
-
-        setFrequentation(data);
-      } catch (error) {
-        console.error("Erreur lors du chargement de la fréquentation:", error);
-      }
-    };
-
-    fetchFrequentation();
-  }, []);
 
   // Calculer les statistiques pour les graphiques
   const frequentationStats = frequentation.reduce((acc, day) => acc + day.nombre, 0);
@@ -311,7 +312,7 @@ export default function RapportsPage() {
                 <div className="p-2 bg-blue-600 rounded-lg">
                   <DollarSign className="h-5 w-5 text-white" />
                 </div>
-                <h3 className="font-semibold text-blue-900">Aujourd'hui</h3>
+                <h3 className="font-semibold text-blue-900">Aujourd&apos;hui</h3>
               </div>
               <TrendingUp className="h-5 w-5 text-blue-600" />
             </div>

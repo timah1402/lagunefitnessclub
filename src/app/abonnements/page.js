@@ -17,12 +17,17 @@ export default function AbonnementsPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("tous");
 
-  if (!user) {
-    router.push("/login");
-    return null;
-  }
+  // Déplacer la vérification d'authentification dans useEffect
+  useEffect(() => {
+    if (!user) {
+      router.push("/login");
+    }
+  }, [user, router]);
 
   useEffect(() => {
+    // Ne pas charger les données si l'utilisateur n'est pas authentifié
+    if (!user) return;
+
     const fetchAbonnements = async () => {
       setLoading(true);
       try {
@@ -42,7 +47,7 @@ export default function AbonnementsPage() {
     };
 
     fetchAbonnements();
-  }, []);
+  }, [user]);
 
   // Filtrage et recherche
   useEffect(() => {
@@ -76,6 +81,18 @@ export default function AbonnementsPage() {
 
     setFilteredAbonnements(filtered);
   }, [abonnements, searchTerm, statusFilter]);
+
+  // Afficher un loader pendant la vérification d'authentification
+  if (!user) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 flex items-center justify-center">
+        <div className="text-center">
+          <RefreshCw className="h-8 w-8 animate-spin text-blue-500 mx-auto" />
+          <p className="mt-2 text-gray-600">Redirection...</p>
+        </div>
+      </div>
+    );
+  }
 
   const renouvelerAbonnement = async (abonnement, duree) => {
     setLoading(true);

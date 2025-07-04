@@ -19,6 +19,9 @@ export default function PresencesPage() {
     thisMonth: 0,
     loading: true
   });
+  useEffect(() => {
+    fetchStats();
+  }, []);
 
   if (!user) {
     router.push("/login");
@@ -63,9 +66,7 @@ export default function PresencesPage() {
   };
 
   // Charger les statistiques au montage du composant
-  useEffect(() => {
-    fetchStats();
-  }, []);
+  
 
   const handleMarkPresence = async (e) => {
     if (e) e.preventDefault();
@@ -146,7 +147,7 @@ export default function PresencesPage() {
               <h1 className="text-3xl font-bold bg-gradient-to-r from-gray-800 to-gray-600 bg-clip-text text-transparent mb-2">
                 Marquer une Présence
               </h1>
-              <p className="text-gray-500 text-sm">Enregistrez rapidement la présence d'un client</p>
+              <p className="text-gray-500 text-sm">Enregistrement d&apos;une présence</p>
             </div>
 
             <div className="space-y-6">
@@ -261,7 +262,7 @@ export default function PresencesPage() {
                   stats.today
                 )}
               </div>
-              <div className="text-xs text-gray-600">Présences aujourd'hui</div>
+              <div className="text-xs text-gray-600">Présences aujourd&apos;hui</div>
             </div>
             <div className="bg-white/60 backdrop-blur-lg rounded-2xl p-4 text-center border border-white/20">
               <div className="text-2xl font-bold text-green-600">

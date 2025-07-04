@@ -572,10 +572,10 @@ export default function RapportJournalierPage() {
                   <div className="text-center py-16">
                     <div className="text-6xl mb-6 opacity-50">📊</div>
                     <h3 className="text-xl font-semibold text-gray-700 mb-2">
-                      Aucune transaction aujourd'hui
+                      Aucune transaction aujourd&apos;hui
                     </h3>
                     <p className="text-gray-500">
-                      Aucun paiement n'a été enregistré pour cette journée.
+                      Aucun paiement n&apos;a été enregistré pour cette journée.
                     </p>
                   </div>
                 )}
