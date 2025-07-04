@@ -25,66 +25,83 @@ export default function RapportJournalierPage() {
   useEffect(() => {
     if (!user) return;
 
-    const fetchPaiementsDuJour = async () => {
-      try {
-        const today = new Date();
-        const dayStr = today.toISOString().split("T")[0];
+   // Remplacez la fonction fetchPaiementsDuJour dans votre rapport journalier par celle-ci :
 
-        const start = `${dayStr}T00:00:00Z`;
-        const end = `${dayStr}T23:59:59Z`;
+const fetchPaiementsDuJour = async () => {
+  try {
+    const today = new Date();
+    const year = today.getFullYear();
+    const month = today.getMonth();
+    const day = today.getDate();
 
-        const paiementsJour = [];
-        let totalJour = 0;
+    // Utiliser la même approche que le rapport mensuel pour la cohérence
+    const startOfDay = new Date(year, month, day, 0, 0, 0).toISOString();
+    const endOfDay = new Date(year, month, day, 23, 59, 59).toISOString();
 
-        // Abonnements créés aujourd'hui
-        const abonnementsQ = query(
-          collection(db, "abonnements"),
-          where("date_debut", ">=", start),
-          where("date_debut", "<=", end)
-        );
-        const abonnementsSnap = await getDocs(abonnementsQ);
-        abonnementsSnap.forEach((doc) => {
-          const data = doc.data();
-          paiementsJour.push({ type: "Abonnement", ...data });
-          totalJour += data.montant || 0;
-        });
+    const paiementsJour = [];
+    let totalJour = 0;
 
-        // Séances
-        const seancesQ = query(
-          collection(db, "seances"),
-          where("date", ">=", start),
-          where("date", "<=", end)
-        );
-        const seancesSnap = await getDocs(seancesQ);
-        seancesSnap.forEach((doc) => {
-          const data = doc.data();
-          paiementsJour.push({ type: "Séance", ...data });
-          totalJour += data.montant || 0;
-        });
+    // Abonnements créés aujourd'hui
+    const abonnementsQ = query(
+      collection(db, "abonnements"),
+      where("date_debut", ">=", startOfDay),
+      where("date_debut", "<=", endOfDay)
+    );
+    const abonnementsSnap = await getDocs(abonnementsQ);
+    abonnementsSnap.forEach((doc) => {
+      const data = doc.data();
+      paiementsJour.push({ type: "Abonnement", ...data });
+      totalJour += data.montant || 0;
+    });
 
-        // Transactions (renouvellements)
-        const transactionsQ = query(
-          collection(db, "transactions"),
-          where("date", ">=", start),
-          where("date", "<=", end)
-        );
-        const transactionsSnap = await getDocs(transactionsQ);
-        transactionsSnap.forEach((doc) => {
-          const data = doc.data();
-          paiementsJour.push({ type: "Renouvellement", ...data });
-          totalJour += data.montant || 0;
-        });
+    // Séances du jour
+    const seancesQ = query(
+      collection(db, "seances"),
+      where("date", ">=", startOfDay),
+      where("date", "<=", endOfDay)
+    );
+    const seancesSnap = await getDocs(seancesQ);
+    seancesSnap.forEach((doc) => {
+      const data = doc.data();
+      paiementsJour.push({ type: "Séance", ...data });
+      totalJour += data.montant || 0;
+    });
 
-        setPaiements(paiementsJour);
-        setTotal(totalJour);
-      } catch (error) {
-        console.error("Erreur lors du chargement des données:", error);
-        alert("Erreur lors du chargement des données");
-      } finally {
-        setLoading(false);
-      }
-    };
+    // Transactions (renouvellements) du jour
+    const transactionsQ = query(
+      collection(db, "transactions"),
+      where("date", ">=", startOfDay),
+      where("date", "<=", endOfDay)
+    );
+    const transactionsSnap = await getDocs(transactionsQ);
+    transactionsSnap.forEach((doc) => {
+      const data = doc.data();
+      paiementsJour.push({ type: "Renouvellement", ...data });
+      totalJour += data.montant || 0;
+    });
 
+    // Trier par date pour avoir un ordre chronologique
+    paiementsJour.sort((a, b) => {
+      const dateA = new Date(a.date || a.date_debut);
+      const dateB = new Date(b.date || b.date_debut);
+      return dateA - dateB;
+    });
+
+    setPaiements(paiementsJour);
+    setTotal(totalJour);
+    
+    // Debug: afficher les résultats dans la console
+    console.log("Période recherchée:", { startOfDay, endOfDay });
+    console.log("Paiements trouvés:", paiementsJour);
+    console.log("Total:", totalJour);
+    
+  } catch (error) {
+    console.error("Erreur lors du chargement des données:", error);
+    alert("Erreur lors du chargement des données");
+  } finally {
+    setLoading(false);
+  }
+};
     fetchPaiementsDuJour();
   }, [user]);
 

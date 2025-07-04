@@ -1,35 +1,145 @@
 "use client";
 import { useState } from "react";
 import { CreditCard, User, CalendarDays, CheckCircle, Sparkles, TrendingUp, Clock, DollarSign } from "lucide-react";
+import { db } from "../lib/firebase"; // Ajustez le chemin selon votre structure
+import { collection, addDoc, serverTimestamp, doc, updateDoc, getDoc, setDoc } from "firebase/firestore";
 
 export default function PaiementsPage() {
   const [type, setType] = useState("abonnement");
   const [nom, setNom] = useState("");
   const [montant, setMontant] = useState("");
   const [duree, setDuree] = useState("1mois");
+  const [dateSeance, setDateSeance] = useState(new Date().toISOString().split('T')[0]);
   const [message, setMessage] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    setIsSubmitting(true);
+  // Fonction pour mettre à jour les rapports
+  const updateReports = async (paiementData, montantPaye) => {
+    const now = new Date();
+    const mois = now.getMonth() + 1;
+    const annee = now.getFullYear();
+    const jour = now.getDate();
     
-    // Simulation de l'envoi
-    setTimeout(() => {
-      const montantInt = parseInt(montant);
-      if (type === "abonnement") {
-        setMessage("✅ Abonnement enregistré avec succès !");
+    // ID du rapport mensuel
+    const reportId = `${jour}-${mois}-${annee}`;
+    const rapportRef = doc(db, "rapports", reportId);
+    
+    try {
+      // Vérifier si le rapport existe déjà
+      const rapportDoc = await getDoc(rapportRef);
+      
+      if (rapportDoc.exists()) {
+        // Mettre à jour le rapport existant
+        const currentData = rapportDoc.data();
+        
+        const updatedData = {
+          total_journalier: (currentData.total_journalier || 0) + montantPaye,
+          total_mensuel: (currentData.total_mensuel || 0) + montantPaye,
+          total_annuel: (currentData.total_annuel || 0) + montantPaye,
+          updatedAt: serverTimestamp(),
+        };
+        
+        await updateDoc(rapportRef, updatedData);
+        console.log("Rapport mis à jour:", reportId);
       } else {
-        setMessage("✅ Paiement à la séance enregistré avec succès !");
+        // Créer un nouveau rapport
+        const newRapportData = {
+          jour: jour,
+          mois: mois,
+          annee: annee,
+          total_journalier: montantPaye,
+          total_mensuel: montantPaye,
+          total_annuel: montantPaye,
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+        };
+        
+        await setDoc(rapportRef, newRapportData);
+        console.log("Nouveau rapport créé:", reportId);
       }
       
+      return true;
+    } catch (error) {
+      console.error("Erreur lors de la mise à jour du rapport:", error);
+      throw error;
+    }
+  };
+
+  // Fonction pour enregistrer dans les collections de paiements
+  const savePaiement = async (paiementData) => {
+    const collectionName = type === "abonnement" ? "abonnements" : "seances";
+    const docRef = await addDoc(collection(db, collectionName), paiementData);
+    return docRef;
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    
+    // Validation
+    if (!montant || parseInt(montant) <= 0) {
+      setMessage("❌ Veuillez entrer un montant valide");
+      setTimeout(() => setMessage(""), 3000);
+      return;
+    }
+
+    setIsSubmitting(true);
+    
+    try {
+      const montantPaye = parseInt(montant);
+      
+      // Préparer les données à enregistrer
+      const paiementData = {
+        type: type,
+        nom_client: nom.trim() || null,
+        montant: montantPaye,
+        devise: "FCFA",
+        createdAt: serverTimestamp(),
+        statut: "payé"
+      };
+
+      // Ajouter des champs spécifiques selon le type
+      if (type === "abonnement") {
+        paiementData.duree = duree;
+        const dateDebut = new Date();
+        const dateFin = new Date(Date.now() + (duree === "1an" ? 365 : 30) * 24 * 60 * 60 * 1000);
+        
+        paiementData.date_debut = dateDebut.toISOString();
+        paiementData.date_fin = dateFin.toISOString();
+      } else if (type === "seance") {
+        // Pour les séances, utiliser la date sélectionnée
+        const seanceDate = new Date(dateSeance);
+        paiementData.date = seanceDate.toISOString();
+      }
+
+      // 1. Enregistrer le paiement
+      const docRef = await savePaiement(paiementData);
+      console.log("Paiement enregistré avec l'ID:", docRef.id);
+      
+      // 2. Mettre à jour les rapports
+      await updateReports(paiementData, montantPaye);
+      
+      // Message de succès
+      if (type === "abonnement") {
+        setMessage("✅ Abonnement enregistré et rapport mis à jour avec succès !");
+      } else {
+        setMessage("✅ Paiement séance enregistré et rapport mis à jour avec succès !");
+      }
+      
+      // Réinitialiser le formulaire
       setNom("");
       setMontant("");
+      setDuree("1mois");
+      setDateSeance(new Date().toISOString().split('T')[0]);
+      
+    } catch (error) {
+      console.error("Erreur lors de l'enregistrement:", error);
+      setMessage("❌ Erreur lors de l'enregistrement: " + error.message);
+    } finally {
       setIsSubmitting(false);
       
-      // Effacer le message après 3 secondes
-      setTimeout(() => setMessage(""), 3000);
-    }, 1500);
+      // Effacer le message après 5 secondes
+      setTimeout(() => setMessage(""), 5000);
+    }
   };
 
   return (
@@ -55,13 +165,16 @@ export default function PaiementsPage() {
                 <h1 className="text-3xl font-bold">Gestion des Paiements</h1>
               </div>
               <p className="text-blue-100 text-lg">Enregistrez facilement vos abonnements et séances</p>
+              <div className="mt-2 text-sm text-blue-200 bg-white/10 px-3 py-1 rounded-full inline-block">
+                📊 Mise à jour automatique des rapports
+              </div>
             </div>
             <Sparkles className="absolute top-4 right-4 w-6 h-6 text-white/30" />
             <Sparkles className="absolute bottom-8 right-8 w-4 h-4 text-white/20" />
           </div>
 
           <div className="p-8">
-            <div className="space-y-8">
+            <form onSubmit={handleSubmit} className="space-y-8">
               {/* Sélecteur de type avec animation */}
               <div className="space-y-4">
                 <h3 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
@@ -127,6 +240,21 @@ export default function PaiementsPage() {
 
               {/* Champs du formulaire */}
               <div className="space-y-6">
+                {type === "seance" && (
+                  <div className="space-y-2">
+                    <label className="text-gray-700 font-semibold flex items-center gap-2">
+                      <CalendarDays className="w-4 h-4 text-gray-500" />
+                      Date de la séance
+                    </label>
+                    <input
+                      type="date"
+                      className="w-full border-2 border-gray-200 p-4 rounded-xl focus:outline-none focus:border-purple-500 focus:ring-4 focus:ring-purple-100 transition-all bg-gray-50 focus:bg-white"
+                      value={dateSeance}
+                      onChange={(e) => setDateSeance(e.target.value)}
+                    />
+                  </div>
+                )}
+
                 <div className="space-y-2">
                   <label className="text-gray-700 font-semibold flex items-center gap-2">
                     <User className="w-4 h-4 text-gray-500" />
@@ -145,7 +273,7 @@ export default function PaiementsPage() {
                   <div className="space-y-2">
                     <label className="text-gray-700 font-semibold flex items-center gap-2">
                       <Clock className="w-4 h-4 text-gray-500" />
-                     Durée de l&apos;abonnement
+                      Durée de l&apos;abonnement
                     </label>
                     <select
                       className="w-full border-2 border-gray-200 p-4 rounded-xl focus:outline-none focus:border-purple-500 focus:ring-4 focus:ring-purple-100 transition-all bg-gray-50 focus:bg-white"
@@ -161,7 +289,7 @@ export default function PaiementsPage() {
                 <div className="space-y-2">
                   <label className="text-gray-700 font-semibold flex items-center gap-2">
                     <DollarSign className="w-4 h-4 text-gray-500" />
-                    Montant payé (FCFA)
+                    Montant payé (FCFA) *
                   </label>
                   <div className="relative">
                     <input
@@ -171,6 +299,7 @@ export default function PaiementsPage() {
                       value={montant}
                       onChange={(e) => setMontant(e.target.value)}
                       required
+                      min="1"
                     />
                     <div className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 font-medium">
                       FCFA
@@ -179,9 +308,24 @@ export default function PaiementsPage() {
                 </div>
               </div>
 
+              {/* Information sur la mise à jour des rapports */}
+              <div className="bg-gradient-to-r from-blue-50 to-purple-50 border border-blue-200 rounded-xl p-4">
+                <div className="flex items-center gap-3 text-blue-800">
+                  <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center">
+                    <TrendingUp className="w-4 h-4 text-white" />
+                  </div>
+                  <div>
+                    <div className="font-semibold">Mise à jour automatique</div>
+                    <div className="text-sm text-blue-600">
+                      Ce paiement sera automatiquement ajouté aux rapports journaliers, mensuels et annuels
+                    </div>
+                  </div>
+                </div>
+              </div>
+
               {/* Bouton de soumission avec loading */}
               <button
-                onClick={handleSubmit}
+                type="submit"
                 disabled={isSubmitting}
                 className={`w-full p-4 rounded-xl font-bold text-lg flex items-center justify-center gap-3 transition-all duration-300 ${
                   isSubmitting
@@ -192,16 +336,16 @@ export default function PaiementsPage() {
                 {isSubmitting ? (
                   <>
                     <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                    Traitement en cours...
+                    Enregistrement et mise à jour...
                   </>
                 ) : (
                   <>
                     <CheckCircle className="w-5 h-5" />
-                    Enregistrer le paiement
+                    Enregistrer et Mettre à Jour les Rapports
                   </>
                 )}
               </button>
-            </div>
+            </form>
 
             {/* Message de confirmation avec animation */}
             {message && (
@@ -220,22 +364,6 @@ export default function PaiementsPage() {
             )}
           </div>
         </div>
-
-        {/* Statistiques rapides
-        <div className="mt-6 grid grid-cols-3 gap-4">
-          <div className="bg-white/60 backdrop-blur-sm rounded-2xl p-4 text-center border border-white/20 transform hover:scale-105 transition-transform duration-200">
-            <div className="text-2xl font-bold text-blue-600">127</div>
-            <div className="text-sm text-gray-600">Abonnements actifs</div>
-          </div>
-          <div className="bg-white/60 backdrop-blur-sm rounded-2xl p-4 text-center border border-white/20 transform hover:scale-105 transition-transform duration-200">
-            <div className="text-2xl font-bold text-purple-600">89</div>
-            <div className="text-sm text-gray-600">Séances ce mois</div>
-          </div>
-          <div className="bg-white/60 backdrop-blur-sm rounded-2xl p-4 text-center border border-white/20 transform hover:scale-105 transition-transform duration-200">
-            <div className="text-2xl font-bold text-teal-600">2.8M</div>
-            <div className="text-sm text-gray-600">FCFA ce mois</div>
-          </div>
-        </div> */}
       </div>
     </div>
   );

@@ -95,98 +95,106 @@ export default function AbonnementsPage() {
   }
 
   const renouvelerAbonnement = async (abonnement, duree) => {
-    setLoading(true);
-    const today = new Date();
-    const currentDateFin = parseISO(abonnement.date_fin);
+  setLoading(true);
+  const today = new Date();
+  const currentDateFin = parseISO(abonnement.date_fin);
 
-    // Vérifier si l'abonnement est expiré
-    if (currentDateFin < today) {
-      setMessage(`❌ Impossible : abonnement de ${abonnement.nom_client} déjà expiré.`);
-      setLoading(false);
-      setTimeout(() => setMessage(""), 5000);
-      return;
-    }
+  // Calculer la nouvelle date de fin
+  let nouvelleDateFin;
+  
+  // Si l'abonnement est expiré, partir de la date actuelle
+  // Sinon, partir de la date de fin actuelle
+  if (currentDateFin < today) {
+    nouvelleDateFin = duree === "1mois" 
+      ? addMonths(today, 1) 
+      : addYears(today, 1);
+  } else {
+    nouvelleDateFin = duree === "1mois"
+      ? addMonths(currentDateFin, 1)
+      : addYears(currentDateFin, 1);
+  }
 
-    const nouvelleDateFin =
-      duree === "1mois"
-        ? addMonths(currentDateFin, 1)
-        : addYears(currentDateFin, 1);
+  const montantRenouvellement = abonnement.montant || 0;
+  if (montantRenouvellement <= 0) {
+    setMessage(`❌ Montant invalide pour ${abonnement.nom_client}. Impossible de renouveler.`);
+    setLoading(false);
+    setTimeout(() => setMessage(""), 5000);
+    return;
+  }
+  const nouveauMontant = montantRenouvellement + montantRenouvellement;
 
-    const montantRenouvellement = abonnement.montant || 0;
-    if (montantRenouvellement <= 0) {
-      setMessage(`❌ Montant invalide pour ${abonnement.nom_client}. Impossible de renouveler.`);
-      setLoading(false);
-      setTimeout(() => setMessage(""), 5000);
-      return;
-    }
-    const nouveauMontant = montantRenouvellement + montantRenouvellement;
+  try {
+    // 1️⃣ Mettre à jour l'abonnement
+    const abonnementRef = doc(db, "abonnements", abonnement.id);
+    await updateDoc(abonnementRef, {
+      date_fin: nouvelleDateFin.toISOString(),
+      montant: nouveauMontant,
+    });
 
-    try {
-      // 1️⃣ Mettre à jour l'abonnement
-      const abonnementRef = doc(db, "abonnements", abonnement.id);
-      await updateDoc(abonnementRef, {
-        date_fin: nouvelleDateFin.toISOString(),
-        montant: nouveauMontant,
+    // 2️⃣ Enregistrer la transaction
+    await addDoc(collection(db, "transactions"), {
+      abonnement_id: abonnement.id,
+      nom_client: abonnement.nom_client,
+      montant: montantRenouvellement,
+      date: new Date().toISOString(),
+      type: "renouvellement",
+      duree,
+      etait_expire: currentDateFin < today, // Nouveau champ pour tracer si c'était expiré
+    });
+
+    // 3️⃣ Mettre à jour le rapport
+    const jour = today.getDate();
+    const mois = today.getMonth() + 1;
+    const annee = today.getFullYear();
+    const rapportId = `${jour}-${mois}-${annee}`;
+    const rapportRef = doc(db, "rapports", rapportId);
+    const rapportSnap = await getDoc(rapportRef);
+
+    if (rapportSnap.exists()) {
+      const rapportData = rapportSnap.data();
+
+      await updateDoc(rapportRef, {
+        total_journalier: (rapportData.total_journalier || 0) + montantRenouvellement,
+        total_mensuel: (rapportData.total_mensuel || 0) + montantRenouvellement,
+        total_annuel: (rapportData.total_annuel || 0) + montantRenouvellement,
+        updatedAt: new Date(),
       });
-
-      // 2️⃣ Enregistrer la transaction
-      await addDoc(collection(db, "transactions"), {
-        abonnement_id: abonnement.id,
-        nom_client: abonnement.nom_client,
-        montant: montantRenouvellement,
-        date: new Date().toISOString(),
-        type: "renouvellement",
-        duree,
+    } else {
+      await setDoc(rapportRef, {
+        jour,
+        mois,
+        annee,
+        total_journalier: montantRenouvellement,
+        total_mensuel: montantRenouvellement,
+        total_annuel: montantRenouvellement,
+        createdAt: new Date(),
       });
-
-      // 3️⃣ Mettre à jour le rapport
-      const jour = today.getDate();
-      const mois = today.getMonth() + 1;
-      const annee = today.getFullYear();
-      const rapportId = `${jour}-${mois}-${annee}`;
-      const rapportRef = doc(db, "rapports", rapportId);
-      const rapportSnap = await getDoc(rapportRef);
-
-      if (rapportSnap.exists()) {
-        const rapportData = rapportSnap.data();
-
-        await updateDoc(rapportRef, {
-          total_journalier: (rapportData.total_journalier || 0) + montantRenouvellement,
-          total_mensuel: (rapportData.total_mensuel || 0) + montantRenouvellement,
-          total_annuel: (rapportData.total_annuel || 0) + montantRenouvellement,
-          updatedAt: new Date(),
-        });
-      } else {
-        await setDoc(rapportRef, {
-          jour,
-          mois,
-          annee,
-          total_journalier: montantRenouvellement,
-          total_mensuel: montantRenouvellement,
-          total_annuel: montantRenouvellement,
-          createdAt: new Date(),
-        });
-      }
-
-      setMessage(`✅ Abonnement de ${abonnement.nom_client} renouvelé (+${montantRenouvellement.toLocaleString()} FCFA) !`);
-      
-      // Recharger les données
-      const snap = await getDocs(collection(db, "abonnements"));
-      const items = snap.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
-      }));
-      setAbonnements(items);
-      
-      setTimeout(() => setMessage(""), 5000);
-    } catch (error) {
-      console.error("Erreur renouvellement:", error);
-      setMessage("❌ Une erreur est survenue lors du renouvellement.");
-      setTimeout(() => setMessage(""), 5000);
-    } finally {
-      setLoading(false);
     }
-  };
+
+    // Message différent selon si l'abonnement était expiré ou non
+    const messageRenouvellement = currentDateFin < today 
+      ? `✅ Abonnement EXPIRÉ de ${abonnement.nom_client} réactivé (+${montantRenouvellement.toLocaleString()} FCFA) !`
+      : `✅ Abonnement de ${abonnement.nom_client} renouvelé (+${montantRenouvellement.toLocaleString()} FCFA) !`;
+    
+    setMessage(messageRenouvellement);
+    
+    // Recharger les données
+    const snap = await getDocs(collection(db, "abonnements"));
+    const items = snap.docs.map((doc) => ({
+      id: doc.id,
+      ...doc.data(),
+    }));
+    setAbonnements(items);
+    
+    setTimeout(() => setMessage(""), 5000);
+  } catch (error) {
+    console.error("Erreur renouvellement:", error);
+    setMessage("❌ Une erreur est survenue lors du renouvellement.");
+    setTimeout(() => setMessage(""), 5000);
+  } finally {
+    setLoading(false);
+  }
+};
 
   const getStatusInfo = (abonnement) => {
     if (!abonnement.date_fin) return { text: "Invalide", color: "text-gray-500", bg: "bg-gray-100", icon: XCircle };
@@ -225,6 +233,8 @@ export default function AbonnementsPage() {
       return parseISO(a.date_fin) < today;
     }).length
   };
+
+  
 
   return (
     <main className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 p-4 lg:p-8">

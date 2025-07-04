@@ -36,38 +36,67 @@ export default function DashboardPage() {
 
   // Tous les useEffect doivent être appelés de manière inconditionnelle
   useEffect(() => {
-    const fetchNotifications = async () => {
-      const snap = await getDocs(collection(db, "abonnements"));
-      const today = new Date();
-      const expiringSoon = [];
+  const fetchNotifications = async () => {
+    const snap = await getDocs(collection(db, "abonnements"));
+    const today = new Date();
+    const expiringSoon = [];
+    const expired = [];
 
-      snap.forEach((doc) => {
-        const data = doc.data();
-        const dateFin = new Date(data.date_fin);
-        const diffDays = Math.ceil((dateFin - today) / (1000 * 60 * 60 * 24));
-
-        if (diffDays <= 7 && diffDays >= 0) {
-          expiringSoon.push({
-            message: `L'abonnement de ${data.nom_client} expire dans ${diffDays} jour(s).`,
-            type: diffDays <= 3 ? 'urgent' : 'warning',
-            days: diffDays
-          });
-        }
-      });
-
-      if (expiringSoon.length === 0) {
-        expiringSoon.push({
-          message: "Aucun abonnement n'expire dans les 7 prochains jours.",
-          type: 'success',
-          days: null
-        });
+    snap.forEach((doc) => {
+      const data = doc.data();
+      
+      // Vérifier si les dates existent
+      if (!data.date_fin) {
+        return; // Ignorer les abonnements sans date de fin
       }
 
-      setNotifications(expiringSoon);
-    };
+      const dateFin = new Date(data.date_fin);
+      const diffDays = Math.ceil((dateFin - today) / (1000 * 60 * 60 * 24));
 
-    fetchNotifications();
-  }, []);
+      // Abonnements expirés (date de fin < aujourd'hui)
+      if (diffDays < 0) {
+        expired.push({
+          message: `L'abonnement de ${data.nom_client} a expiré il y a ${Math.abs(diffDays)} jour(s).`,
+          type: 'expired',
+          days: diffDays,
+          client: data.nom_client
+        });
+      }
+      // Abonnements qui vont expirer dans les 7 prochains jours
+      else if (diffDays <= 7 && diffDays >= 0) {
+        expiringSoon.push({
+          message: `L'abonnement de ${data.nom_client} expire dans ${diffDays} jour(s).`,
+          type: diffDays <= 3 ? 'urgent' : 'warning',
+          days: diffDays,
+          client: data.nom_client
+        });
+      }
+    });
+
+    // Combiner les notifications expirées et celles qui vont expirer
+    const allNotifications = [...expired, ...expiringSoon];
+
+    // Trier par priorité : expirés d'abord, puis par nombre de jours
+    allNotifications.sort((a, b) => {
+      if (a.type === 'expired' && b.type !== 'expired') return -1;
+      if (a.type !== 'expired' && b.type === 'expired') return 1;
+      return a.days - b.days;
+    });
+
+    if (allNotifications.length === 0) {
+      allNotifications.push({
+        message: "Aucun abonnement n'expire dans les 7 prochains jours.",
+        type: 'success',
+        days: null
+      });
+    }
+
+    setNotifications(allNotifications);
+  };
+
+  fetchNotifications();
+}, []);
+
 
   useEffect(() => {
     const fetchDashboardRevenus = async () => {
@@ -166,35 +195,43 @@ export default function DashboardPage() {
   );
 
   const NotificationItem = ({ notification }) => {
-    const getNotificationStyle = (type) => {
-      switch (type) {
-        case 'urgent':
-          return {
-            bg: 'bg-red-50 border-red-200',
-            icon: AlertTriangle,
-            iconColor: 'text-red-500',
-            textColor: 'text-red-800'
-          };
-        case 'warning':
-          return {
-            bg: 'bg-yellow-50 border-yellow-200',
-            icon: Bell,
-            iconColor: 'text-yellow-500',
-            textColor: 'text-yellow-800'
-          };
-        default:
-          return {
-            bg: 'bg-green-50 border-green-200',
-            icon: CheckCircle,
-            iconColor: 'text-green-500',
-            textColor: 'text-green-800'
-          };
-      }
-    };
+   const getNotificationStyle = (type) => {
+  switch (type) {
+    case 'expired':
+      return {
+        bg: 'bg-red-100 border-red-300',
+        icon: AlertTriangle,
+        iconColor: 'text-red-600',
+        textColor: 'text-red-900'
+      };
+    case 'urgent':
+      return {
+        bg: 'bg-red-50 border-red-200',
+        icon: AlertTriangle,
+        iconColor: 'text-red-500',
+        textColor: 'text-red-800'
+      };
+    case 'warning':
+      return {
+        bg: 'bg-yellow-50 border-yellow-200',
+        icon: Bell,
+        iconColor: 'text-yellow-500',
+        textColor: 'text-yellow-800'
+      };
+    default:
+      return {
+        bg: 'bg-green-50 border-green-200',
+        icon: CheckCircle,
+        iconColor: 'text-green-500',
+        textColor: 'text-green-800'
+      };
+  }
+};
 
     const style = getNotificationStyle(notification.type);
     const IconComponent = style.icon;
 
+    
     return (
       <div className={`p-4 rounded-lg border ${style.bg} ${style.textColor} transition-all duration-200 hover:shadow-md`}>
         <div className="flex items-start space-x-3">
@@ -353,25 +390,7 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* Quick Actions
-        <div className="mt-8 grid grid-cols-1 md:grid-cols-4 gap-4">
-          <button className="bg-blue-600 hover:bg-blue-700 text-white p-4 rounded-lg transition-colors duration-200 flex items-center justify-center space-x-2">
-            <Users className="w-5 h-5" />
-            <span>Gérer Membres</span>
-          </button>
-          <button className="bg-green-600 hover:bg-green-700 text-white p-4 rounded-lg transition-colors duration-200 flex items-center justify-center space-x-2">
-            <DollarSign className="w-5 h-5" />
-            <span>Nouveaux Paiements</span>
-          </button>
-          <button className="bg-purple-600 hover:bg-purple-700 text-white p-4 rounded-lg transition-colors duration-200 flex items-center justify-center space-x-2">
-            <Activity className="w-5 h-5" />
-            <span>Rapports</span>
-          </button>
-          <button className="bg-orange-600 hover:bg-orange-700 text-white p-4 rounded-lg transition-colors duration-200 flex items-center justify-center space-x-2">
-            <Calendar className="w-5 h-5" />
-            <span>Planning</span>
-          </button>
-        </div> */}
+       
       </main>
     </div>
   );
