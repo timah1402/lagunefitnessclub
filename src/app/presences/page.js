@@ -4,7 +4,7 @@ import { useAuth } from "../context/AuthContext";
 import { useRouter } from "next/navigation";
 import { db } from "../lib/firebase";
 import { collection, addDoc, serverTimestamp, query, where, getDocs, orderBy } from "firebase/firestore";
-import { CheckCircle, UserCheck, CalendarCheck, User, Clock, Sparkles, Users } from "lucide-react";
+import { CheckCircle, UserCheck, CalendarCheck, User, Clock, Sparkles, Users, Info } from "lucide-react";
 
 export default function PresencesPage() {
   const { user } = useAuth();
@@ -17,6 +17,7 @@ export default function PresencesPage() {
   const [stats, setStats] = useState({
     today: 0,
     thisMonth: 0,
+    todayAuto: 0,
     loading: true
   });
 
@@ -24,7 +25,6 @@ export default function PresencesPage() {
   const [nomSelectionne, setNomSelectionne] = useState("");
   const [loadingClients, setLoadingClients] = useState(false);
   const [abonnementsActifs, setAbonnementsActifs] = useState([]);
-  const [clientsSeances, setClientsSeances] = useState([]);
 
   useEffect(() => {
     if (!user) {
@@ -32,8 +32,8 @@ export default function PresencesPage() {
       return;
     }
     fetchStats();
-    loadClientsData();
-  }, [user, router, type]);
+    loadAbonnementsActifs(); // Charger seulement les abonnements
+  }, [user, router]);
 
   // Fonction pour charger les données des clients selon le type
   const loadClientsData = async () => {
@@ -147,23 +147,56 @@ export default function PresencesPage() {
     }
   };
 
-  // Fonction pour récupérer les statistiques
+  // Fonction pour récupérer les statistiques avec distinction automatique/manuelle
   const fetchStats = async () => {
     try {
       const today = new Date();
-      const startOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-      const endOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1);
       
+      // Créer les dates de début et fin du jour en utilisant setHours pour être sûr
+      const startOfDay = new Date(today);
+      startOfDay.setHours(0, 0, 0, 0);
+      
+      const endOfDay = new Date(today);
+      endOfDay.setHours(23, 59, 59, 999);
+      
+      // Début et fin du mois
       const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+      startOfMonth.setHours(0, 0, 0, 0);
+      
       const endOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+      endOfMonth.setHours(23, 59, 59, 999);
 
-      // Présences aujourd'hui
+      console.log("Période recherchée - Jour:", {
+        startOfDay: startOfDay.toISOString(),
+        endOfDay: endOfDay.toISOString()
+      });
+
+      console.log("Période recherchée - Mois:", {
+        startOfMonth: startOfMonth.toISOString(),
+        endOfMonth: endOfMonth.toISOString()
+      });
+
+      // Récupérer toutes les présences aujourd'hui
       const todayQuery = query(
         collection(db, "presences"),
         where("date", ">=", startOfDay.toISOString()),
-        where("date", "<", endOfDay.toISOString())
+        where("date", "<=", endOfDay.toISOString())
       );
       const todaySnapshot = await getDocs(todayQuery);
+      
+      console.log("Présences aujourd'hui trouvées:", todaySnapshot.size);
+      
+      // Compter les présences automatiques parmi celles d'aujourd'hui
+      let todayAutoCount = 0;
+      todaySnapshot.forEach(doc => {
+        const data = doc.data();
+        console.log("Présence:", data);
+        if (data.auto_generated === true) {
+          todayAutoCount++;
+        }
+      });
+
+      console.log("Présences automatiques aujourd'hui:", todayAutoCount);
 
       // Présences ce mois
       const monthQuery = query(
@@ -172,15 +205,25 @@ export default function PresencesPage() {
         where("date", "<=", endOfMonth.toISOString())
       );
       const monthSnapshot = await getDocs(monthQuery);
+      
+      console.log("Présences ce mois trouvées:", monthSnapshot.size);
 
-      setStats({
+      const newStats = {
         today: todaySnapshot.size,
         thisMonth: monthSnapshot.size,
+        todayAuto: todayAutoCount,
         loading: false
-      });
+      };
+
+      console.log("Nouvelles statistiques:", newStats);
+      setStats(newStats);
+      
     } catch (error) {
       console.error("Erreur lors de la récupération des statistiques:", error);
-      setStats(prev => ({ ...prev, loading: false }));
+      setStats(prev => ({ 
+        ...prev, 
+        loading: false 
+      }));
     }
   };
 
@@ -196,60 +239,54 @@ export default function PresencesPage() {
     const nomFinal = getNomFinal();
     
     if (!nomFinal) {
-      setMessage("❌ Veuillez sélectionner ou entrer un nom.");
+      setMessage("❌ Veuillez sélectionner un abonné.");
       setIsLoading(false);
       setTimeout(() => setMessage(""), 3000);
       return;
     }
 
     try {
-      if (type === "abonnement") {
-        // Vérifier si abonnement actif
-        const today = new Date().toISOString();
-        const abonnementsQuery = query(
-          collection(db, "abonnements"),
-          where("nom_client", "==", nomFinal)
-        );
-        const snapshot = await getDocs(abonnementsQuery);
+      // Vérifier si abonnement actif
+      const today = new Date().toISOString();
+      const abonnementsQuery = query(
+        collection(db, "abonnements"),
+        where("nom_client", "==", nomFinal)
+      );
+      const snapshot = await getDocs(abonnementsQuery);
 
-        let abonnementActif = false;
-        snapshot.forEach((doc) => {
-          const data = doc.data();
-          if (
-            data.date_debut <= today &&
-            data.date_fin >= today
-          ) {
-            abonnementActif = true;
-          }
-        });
-
-        if (!abonnementActif) {
-          setMessage("❌ Aucun abonnement actif trouvé pour ce client.");
-          setIsLoading(false);
-          setTimeout(() => setMessage(""), 4000);
-          return;
+      let abonnementActif = false;
+      snapshot.forEach((doc) => {
+        const data = doc.data();
+        if (
+          data.date_debut <= today &&
+          data.date_fin >= today
+        ) {
+          abonnementActif = true;
         }
+      });
+
+      if (!abonnementActif) {
+        setMessage("❌ Aucun abonnement actif trouvé pour ce client.");
+        setIsLoading(false);
+        setTimeout(() => setMessage(""), 4000);
+        return;
       }
 
       await addDoc(collection(db, "presences"), {
         nom_client: nomFinal,
         date: new Date().toISOString(),
-        type,
+        type: "abonnement", // Toujours abonnement maintenant
         createdAt: serverTimestamp(),
+        auto_generated: false // Marquer comme présence manuelle
       });
 
-      setMessage("✅ Présence enregistrée avec succès !");
+      setMessage("✅ Présence de l'abonné enregistrée avec succès !");
       
       // Réinitialiser les champs
       setNomSelectionne("");
-      setNouveauNom("");
-      setIsNouveauNom(false);
       
-      // Recharger les statistiques et les données clients si nécessaire
+      // Recharger les statistiques
       fetchStats();
-      if (type === "seance" && isNouveauNom && nouveauNom.trim()) {
-        loadClientsData();
-      }
       
     } catch (error) {
       console.error("Erreur:", error);
@@ -302,115 +339,68 @@ export default function PresencesPage() {
                 <CalendarCheck className="text-white" size={28} />
               </div>
               <h1 className="text-3xl font-bold bg-gradient-to-r from-gray-800 to-gray-600 bg-clip-text text-transparent mb-2">
-                Marquer une Présence
+                Présence des Abonnés
               </h1>
-              <p className="text-gray-500 text-sm">Enregistrement d&apos;une présence</p>
+              <p className="text-gray-500 text-sm">Marquer la présence des clients abonnés</p>
+            </div>
+
+            {/* Information sur les présences */}
+            <div className="bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-xl p-4 mb-6">
+              <div className="flex items-center gap-3 text-green-800">
+                <div className="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center">
+                  <UserCheck className="w-4 h-4 text-white" />
+                </div>
+                <div>
+                  <div className="font-semibold text-sm">Présences des Abonnés</div>
+                  <div className="text-xs text-green-600">
+                    Ce formulaire est uniquement pour marquer la présence des clients abonnés. 
+                    Les séances sont automatiquement enregistrées lors du paiement.
+                  </div>
+                </div>
+              </div>
             </div>
 
             <div className="space-y-6">
-              {/* Sélecteur de type avec design moderne */}
-              <div className="space-y-3">
-                <label className="text-gray-700 font-semibold text-sm flex items-center gap-2">
-                  <Clock size={16} className="text-gray-500" />
-                  Type de présence
-                </label>
-                <div className="grid grid-cols-2 gap-3">
-                  <button
-                    type="button"
-                    onClick={() => setType("abonnement")}
-                    disabled={isLoading}
-                    className={`relative p-4 rounded-2xl border-2 transition-all duration-300 transform hover:scale-105 ${
-                      type === "abonnement"
-                        ? "bg-gradient-to-r from-green-500 to-emerald-600 text-white border-green-400 shadow-lg shadow-green-200"
-                        : "bg-white/50 border-gray-200 text-gray-700 hover:bg-white hover:border-gray-300"
-                    }`}
-                  >
-                    <div className="flex flex-col items-center gap-2">
-                      <UserCheck size={20} />
-                      <span className="font-semibold text-sm">Abonnement</span>
-                    </div>
-                    {type === "abonnement" && (
-                      <div className="absolute -top-1 -right-1 w-3 h-3 bg-yellow-400 rounded-full animate-pulse"></div>
-                    )}
-                  </button>
-                  
-                  <button
-                    type="button"
-                    onClick={() => setType("seance")}
-                    disabled={isLoading}
-                    className={`relative p-4 rounded-2xl border-2 transition-all duration-300 transform hover:scale-105 ${
-                      type === "seance"
-                        ? "bg-gradient-to-r from-blue-500 to-indigo-600 text-white border-blue-400 shadow-lg shadow-blue-200"
-                        : "bg-white/50 border-gray-200 text-gray-700 hover:bg-white hover:border-gray-300"
-                    }`}
-                  >
-                    <div className="flex flex-col items-center gap-2">
-                      <CheckCircle size={20} />
-                      <span className="font-semibold text-sm">Séance</span>
-                    </div>
-                    {type === "seance" && (
-                      <div className="absolute -top-1 -right-1 w-3 h-3 bg-yellow-400 rounded-full animate-pulse"></div>
-                    )}
-                  </button>
-                </div>
-              </div>
 
-              {/* Sélection du client */}
+              {/* Sélection du client abonné uniquement */}
               <div className="space-y-4">
                 <label className="text-gray-700 font-semibold text-sm flex items-center gap-2">
                   <Users size={16} className="text-gray-500" />
-                  Sélection du client
+                  Sélection de l&apos;abonné
                 </label>
                 
                 <div className="space-y-2">
                   <select
-                    className="w-full border-2 text-gray-700 border-gray-200 p-4 rounded-xl focus:outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100 transition-all bg-gray-50 focus:bg-white"
+                    className="w-full border-2 text-gray-700 border-gray-200 p-4 rounded-xl focus:outline-none focus:border-green-500 focus:ring-4 focus:ring-green-100 transition-all bg-gray-50 focus:bg-white"
                     value={nomSelectionne}
                     onChange={(e) => setNomSelectionne(e.target.value)}
                     disabled={isLoading || loadingClients}
                   >
                     <option value="">
-                      {loadingClients ? "Chargement..." : `Sélectionnez un ${type === "abonnement" ? "abonné" : "client"}`}
+                      {loadingClients ? "Chargement..." : "Sélectionnez un abonné"}
                     </option>
-                    {type === "abonnement" ? (
-                      abonnementsActifs.map((client, index) => {
-                        const joursRestants = getJoursRestants(client.dateFin);
-                        return (
-                          <option key={index} value={client.nom}>
-                            {client.nom} - {client.duree} (expire le {formatDateFin(client.dateFin)})
-                            {joursRestants <= 7 && ` - ⚠️ ${joursRestants} jour${joursRestants > 1 ? 's' : ''} restant${joursRestants > 1 ? 's' : ''}`}
-                          </option>
-                        );
-                      })
-                    ) : (
-                      clientsSeances.map((client, index) => (
+                    {abonnementsActifs.map((client, index) => {
+                      const joursRestants = getJoursRestants(client.dateFin);
+                      return (
                         <option key={index} value={client.nom}>
-                          {client.nom} ({client.count} séance{client.count > 1 ? 's' : ''})
+                          {client.nom} - {client.duree} (expire le {formatDateFin(client.dateFin)})
+                          {joursRestants <= 7 && ` - ⚠️ ${joursRestants} jour${joursRestants > 1 ? 's' : ''} restant${joursRestants > 1 ? 's' : ''}`}
                         </option>
-                      ))
-                    )}
+                      );
+                    })}
                   </select>
                   
                   {/* Messages informatifs */}
-                  {!loadingClients && (
-                    <>
-                      {type === "abonnement" && abonnementsActifs.length === 0 && (
-                        <p className="text-sm text-amber-600 bg-amber-50 p-3 rounded-lg border border-amber-200">
-                          ⚠️ Aucun abonnement actif trouvé. Vérifiez que des abonnements sont enregistrés et non expirés.
-                        </p>
-                      )}
-                      {type === "seance" && clientsSeances.length === 0 && (
-                        <p className="text-sm text-gray-500 bg-gray-50 p-3 rounded-lg">
-                          Aucun client trouvé. Commencez par enregistrer des paiements de séances.
-                        </p>
-                      )}
-                    </>
+                  {!loadingClients && abonnementsActifs.length === 0 && (
+                    <p className="text-sm text-amber-600 bg-amber-50 p-3 rounded-lg border border-amber-200">
+                      ⚠️ Aucun abonnement actif trouvé. Vérifiez que des abonnements sont enregistrés et non expirés.
+                    </p>
                   )}
                 </div>
               </div>
 
               {/* Information contextuelle */}
-              {type === "abonnement" && nomSelectionne && (
+              {nomSelectionne && (
                 <div className="bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-xl p-4">
                   <div className="flex items-center gap-3 text-green-800">
                     <div className="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center">
@@ -419,7 +409,7 @@ export default function PresencesPage() {
                     <div>
                       <div className="font-semibold">Abonnement vérifié</div>
                       <div className="text-sm text-green-600">
-                        Ce client a un abonnement actif et peut marquer sa présence.
+                        Cet abonné peut marquer sa présence.
                       </div>
                     </div>
                   </div>
@@ -441,7 +431,7 @@ export default function PresencesPage() {
                 ) : (
                   <>
                     <Sparkles size={20} />
-                    <span>Enregistrer la présence</span>
+                    <span>Marquer la présence</span>
                   </>
                 )}
               </button>
@@ -461,22 +451,32 @@ export default function PresencesPage() {
             )}
           </div>
 
-          {/* Statistiques réelles depuis Firebase */}
-          <div className="mt-6 grid grid-cols-2 gap-4">
+          {/* Statistiques réelles depuis Firebase avec distinction auto/manuel */}
+          <div className="mt-6 grid grid-cols-3 gap-3">
             <div className="bg-white/60 backdrop-blur-lg rounded-2xl p-4 text-center border border-white/20">
-              <div className="text-2xl font-bold text-blue-600">
+              <div className="text-xl font-bold text-blue-600">
                 {stats.loading ? (
-                  <div className="w-6 h-6 border-2 border-blue-600/30 border-t-blue-600 rounded-full animate-spin mx-auto"></div>
+                  <div className="w-5 h-5 border-2 border-blue-600/30 border-t-blue-600 rounded-full animate-spin mx-auto"></div>
                 ) : (
                   stats.today
                 )}
               </div>
-              <div className="text-xs text-gray-600">Présences aujourd&apos;hui</div>
+              <div className="text-xs text-gray-600">Total aujourd&apos;hui</div>
             </div>
             <div className="bg-white/60 backdrop-blur-lg rounded-2xl p-4 text-center border border-white/20">
-              <div className="text-2xl font-bold text-green-600">
+              <div className="text-xl font-bold text-green-600">
                 {stats.loading ? (
-                  <div className="w-6 h-6 border-2 border-green-600/30 border-t-green-600 rounded-full animate-spin mx-auto"></div>
+                  <div className="w-5 h-5 border-2 border-green-600/30 border-t-green-600 rounded-full animate-spin mx-auto"></div>
+                ) : (
+                  stats.todayAuto
+                )}
+              </div>
+              <div className="text-xs text-gray-600">Auto aujourd&apos;hui</div>
+            </div>
+            <div className="bg-white/60 backdrop-blur-lg rounded-2xl p-4 text-center border border-white/20">
+              <div className="text-xl font-bold text-purple-600">
+                {stats.loading ? (
+                  <div className="w-5 h-5 border-2 border-purple-600/30 border-t-purple-600 rounded-full animate-spin mx-auto"></div>
                 ) : (
                   stats.thisMonth
                 )}

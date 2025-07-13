@@ -25,87 +25,85 @@ export default function RapportJournalierPage() {
   useEffect(() => {
     if (!user) return;
 
-   // Remplacez la fonction fetchPaiementsDuJour dans votre rapport journalier par celle-ci :
+    const fetchPaiementsDuJour = async () => {
+      try {
+        const today = new Date();
+        const year = today.getFullYear();
+        const month = today.getMonth();
+        const day = today.getDate();
 
-const fetchPaiementsDuJour = async () => {
-  try {
-    const today = new Date();
-    const year = today.getFullYear();
-    const month = today.getMonth();
-    const day = today.getDate();
+        // Utiliser la même approche que le rapport mensuel pour la cohérence
+        const startOfDay = new Date(year, month, day, 0, 0, 0).toISOString();
+        const endOfDay = new Date(year, month, day, 23, 59, 59).toISOString();
 
-    // Utiliser la même approche que le rapport mensuel pour la cohérence
-    const startOfDay = new Date(year, month, day, 0, 0, 0).toISOString();
-    const endOfDay = new Date(year, month, day, 23, 59, 59).toISOString();
+        const paiementsJour = [];
+        let totalJour = 0;
 
-    const paiementsJour = [];
-    let totalJour = 0;
+        // Abonnements créés aujourd'hui
+        const abonnementsQ = query(
+          collection(db, "abonnements"),
+          where("date_debut", ">=", startOfDay),
+          where("date_debut", "<=", endOfDay)
+        );
+        const abonnementsSnap = await getDocs(abonnementsQ);
+        abonnementsSnap.forEach((doc) => {
+          const data = doc.data();
+          paiementsJour.push({ type: "Abonnement", ...data });
+          totalJour += data.montant || 0;
+        });
 
-    // Abonnements créés aujourd'hui
-    const abonnementsQ = query(
-      collection(db, "abonnements"),
-      where("date_debut", ">=", startOfDay),
-      where("date_debut", "<=", endOfDay)
-    );
-    const abonnementsSnap = await getDocs(abonnementsQ);
-    abonnementsSnap.forEach((doc) => {
-      const data = doc.data();
-      paiementsJour.push({ type: "Abonnement", ...data });
-      totalJour += data.montant || 0;
-    });
+        // Séances du jour
+        const seancesQ = query(
+          collection(db, "seances"),
+          where("date", ">=", startOfDay),
+          where("date", "<=", endOfDay)
+        );
+        const seancesSnap = await getDocs(seancesQ);
+        seancesSnap.forEach((doc) => {
+          const data = doc.data();
+          paiementsJour.push({ type: "Séance", ...data });
+          totalJour += data.montant || 0;
+        });
 
-    // Séances du jour
-    const seancesQ = query(
-      collection(db, "seances"),
-      where("date", ">=", startOfDay),
-      where("date", "<=", endOfDay)
-    );
-    const seancesSnap = await getDocs(seancesQ);
-    seancesSnap.forEach((doc) => {
-      const data = doc.data();
-      paiementsJour.push({ type: "Séance", ...data });
-      totalJour += data.montant || 0;
-    });
+        // Transactions (renouvellements) du jour
+        const transactionsQ = query(
+          collection(db, "transactions"),
+          where("date", ">=", startOfDay),
+          where("date", "<=", endOfDay)
+        );
+        const transactionsSnap = await getDocs(transactionsQ);
+        transactionsSnap.forEach((doc) => {
+          const data = doc.data();
+          paiementsJour.push({ type: "Renouvellement", ...data });
+          totalJour += data.montant || 0;
+        });
 
-    // Transactions (renouvellements) du jour
-    const transactionsQ = query(
-      collection(db, "transactions"),
-      where("date", ">=", startOfDay),
-      where("date", "<=", endOfDay)
-    );
-    const transactionsSnap = await getDocs(transactionsQ);
-    transactionsSnap.forEach((doc) => {
-      const data = doc.data();
-      paiementsJour.push({ type: "Renouvellement", ...data });
-      totalJour += data.montant || 0;
-    });
+        // Trier par date pour avoir un ordre chronologique
+        paiementsJour.sort((a, b) => {
+          const dateA = new Date(a.date || a.date_debut);
+          const dateB = new Date(b.date || b.date_debut);
+          return dateA - dateB;
+        });
 
-    // Trier par date pour avoir un ordre chronologique
-    paiementsJour.sort((a, b) => {
-      const dateA = new Date(a.date || a.date_debut);
-      const dateB = new Date(b.date || b.date_debut);
-      return dateA - dateB;
-    });
-
-    setPaiements(paiementsJour);
-    setTotal(totalJour);
-    
-    // Debug: afficher les résultats dans la console
-    console.log("Période recherchée:", { startOfDay, endOfDay });
-    console.log("Paiements trouvés:", paiementsJour);
-    console.log("Total:", totalJour);
-    
-  } catch (error) {
-    console.error("Erreur lors du chargement des données:", error);
-    alert("Erreur lors du chargement des données");
-  } finally {
-    setLoading(false);
-  }
-};
+        setPaiements(paiementsJour);
+        setTotal(totalJour);
+        
+        // Debug: afficher les résultats dans la console
+        console.log("Période recherchée:", { startOfDay, endOfDay });
+        console.log("Paiements trouvés:", paiementsJour);
+        console.log("Total:", totalJour);
+        
+      } catch (error) {
+        console.error("Erreur lors du chargement des données:", error);
+        alert("Erreur lors du chargement des données");
+      } finally {
+        setLoading(false);
+      }
+    };
     fetchPaiementsDuJour();
   }, [user]);
 
-  // Fonction d'impression améliorée avec le logo du club
+  // Fonction d'impression ultra-compacte
   const handlePrintPDF = () => {
     const printWindow = window.open('', '_blank');
     const currentDate = new Date().toLocaleDateString('fr-FR');
@@ -115,97 +113,95 @@ const fetchPaiementsDuJour = async () => {
       <!DOCTYPE html>
       <html>
       <head>
-        <title>Rapport Journalier - Lagune Fitness Club - ${currentDate}</title>
+        <title>Rapport Journalier - ${currentDate}</title>
         <style>
           @media print {
-            body { margin: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
-            @page { size: A4; margin: 1.5cm; }
+            body { margin: 0; font-family: Arial, sans-serif; font-size: 12px; }
+            @page { size: A4; margin: 1cm; }
             .no-print { display: none !important; }
           }
           body { 
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
-            padding: 20px; 
-            line-height: 1.6;
+            font-family: Arial, sans-serif; 
+            padding: 10px; 
+            line-height: 1.3;
             color: #333;
+            font-size: 12px;
           }
           .header {
             text-align: center;
-            margin-bottom: 40px;
-            border-bottom: 3px solid #4f46e5;
-            padding-bottom: 20px;
+            margin-bottom: 15px;
+            border-bottom: 2px solid #4f46e5;
+            padding-bottom: 10px;
           }
           .club-logo {
-            font-size: 32px;
+            font-size: 18px;
             font-weight: bold;
             color: #4f46e5;
-            margin-bottom: 8px;
-            text-transform: uppercase;
-            letter-spacing: 2px;
-          }
-          .club-subtitle {
-            font-size: 14px;
-            color: #6b7280;
-            margin-bottom: 20px;
-            font-style: italic;
+            margin-bottom: 3px;
           }
           .report-title {
-            font-size: 24px;
+            font-size: 16px;
             font-weight: bold;
-            color: #1f2937;
-            margin-bottom: 10px;
+            margin: 5px 0;
           }
           .report-info {
             display: flex;
             justify-content: space-between;
             align-items: center;
             background-color: #f8fafc;
-            padding: 15px;
-            border-radius: 8px;
-            margin-bottom: 30px;
-            border-left: 4px solid #4f46e5;
+            padding: 8px;
+            margin-bottom: 15px;
+            font-size: 11px;
           }
-          .date-info {
+          .stats-summary {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 10px;
+            margin-bottom: 15px;
+          }
+          .stat-card {
+            background: #f9fafb;
+            padding: 8px;
+            text-align: center;
+            border: 1px solid #e5e7eb;
+            border-radius: 4px;
+          }
+          .stat-number {
+            font-size: 16px;
             font-weight: bold;
-            color: #374151;
+            color: #4f46e5;
           }
-          .time-info {
-            font-size: 14px;
+          .stat-label {
+            font-size: 10px;
             color: #6b7280;
+            margin-top: 2px;
           }
           table { 
             width: 100%; 
             border-collapse: collapse; 
-            margin-bottom: 30px;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-            border-radius: 8px;
-            overflow: hidden;
+            margin-bottom: 15px;
+            font-size: 11px;
           }
           th, td { 
-            padding: 15px; 
+            padding: 6px 8px; 
             text-align: left; 
-            border-bottom: 1px solid #e5e7eb;
+            border: 1px solid #d1d5db;
           }
           th { 
-            background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+            background: #4f46e5;
             color: white;
             font-weight: 600;
-            text-transform: uppercase;
-            font-size: 12px;
-            letter-spacing: 0.5px;
+            font-size: 10px;
           }
           tr:nth-child(even) {
             background-color: #f9fafb;
           }
-          tr:hover {
-            background-color: #f3f4f6;
-          }
           .type-badge {
             display: inline-block;
-            padding: 4px 12px;
-            border-radius: 20px;
-            font-size: 12px;
+            padding: 2px 6px;
+            border-radius: 10px;
+            font-size: 9px;
             font-weight: 600;
-            text-transform: uppercase;
           }
           .type-abonnement {
             background-color: #dcfce7;
@@ -220,78 +216,46 @@ const fetchPaiementsDuJour = async () => {
             color: #92400e;
           }
           .total-section {
-            background: linear-gradient(135deg, #1f2937 0%, #374151 100%);
+            background: #374151;
             color: white;
-            padding: 25px;
-            border-radius: 12px;
+            padding: 12px;
             text-align: center;
-            margin-top: 30px;
+            margin-top: 15px;
           }
           .total-amount {
-            font-size: 28px;
+            font-size: 20px;
             font-weight: bold;
-            margin-bottom: 5px;
+            margin-bottom: 3px;
           }
           .total-label {
-            font-size: 16px;
-            opacity: 0.9;
+            font-size: 12px;
           }
           .no-data {
             text-align: center;
             color: #6b7280;
-            padding: 60px 20px;
+            padding: 30px 20px;
             background-color: #f9fafb;
-            border-radius: 12px;
-            border: 2px dashed #d1d5db;
-          }
-          .no-data-icon {
-            font-size: 48px;
-            margin-bottom: 15px;
-            opacity: 0.5;
-          }
-          .stats-summary {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 20px;
-            margin-bottom: 30px;
-          }
-          .stat-card {
-            background: white;
-            padding: 20px;
-            border-radius: 8px;
-            border: 1px solid #e5e7eb;
-            text-align: center;
-          }
-          .stat-number {
-            font-size: 24px;
-            font-weight: bold;
-            color: #4f46e5;
-          }
-          .stat-label {
-            font-size: 14px;
-            color: #6b7280;
-            margin-top: 5px;
+            border: 1px dashed #d1d5db;
           }
           .footer {
-            margin-top: 40px;
+            margin-top: 15px;
             text-align: center;
-            padding-top: 20px;
+            padding-top: 10px;
             border-top: 1px solid #e5e7eb;
             color: #6b7280;
-            font-size: 12px;
+            font-size: 10px;
           }
         </style>
       </head>
       <body>
         <div class="header">
           <div class="club-logo">🏋️ Lagune Fitness Club</div>
-          <div class="club-subtitle">Excellence • Performance • Bien-être</div>
-          <div class="report-title">Rapport Journalier</div>
+          <div class="report-title">Rapport Journalier - ${currentDate}</div>
         </div>
 
         <div class="report-info">
-          <div class="date-info">📅 ${currentDate}</div>
-          <div class="time-info">⏰ Généré le ${currentDate} à ${currentTime}</div>
+          <div>📅 ${currentDate}</div>
+          <div>⏰ ${currentTime}</div>
         </div>
 
         <div class="stats-summary">
@@ -317,9 +281,9 @@ const fetchPaiementsDuJour = async () => {
           <table>
             <thead>
               <tr>
-                <th>Type</th>
-                <th>Client</th>
-                <th style="text-align: right;">Montant</th>
+                <th style="width: 20%;">Type</th>
+                <th style="width: 50%;">Client</th>
+                <th style="width: 30%; text-align: right;">Montant (FCFA)</th>
               </tr>
             </thead>
             <tbody>
@@ -332,7 +296,7 @@ const fetchPaiementsDuJour = async () => {
                   </td>
                   <td>${p.nom_client || "Anonyme"}</td>
                   <td style="text-align: right; font-weight: 600;">
-                    ${(p.montant || 0).toLocaleString('fr-FR')} FCFA
+                    ${(p.montant || 0).toLocaleString('fr-FR')}
                   </td>
                 </tr>
               `).join('')}
@@ -340,21 +304,17 @@ const fetchPaiementsDuJour = async () => {
           </table>
         ` : `
           <div class="no-data">
-            <div class="no-data-icon">📊</div>
-            <h3>Aucune transaction</h3>
-            <p>Aucun paiement n'a été enregistré pour aujourd'hui.</p>
+            <div style="font-size: 24px; margin-bottom: 10px;">📊</div>
+            <div><strong>Aucune transaction aujourd'hui</strong></div>
           </div>
         `}
         
         <div class="total-section">
           <div class="total-amount">${total.toLocaleString('fr-FR')} FCFA</div>
-          <div class="total-label">Total des recettes du jour</div>
+          <div class="total-label">💰 Total des recettes du jour</div>
         </div>
 
-        <div class="footer">
-          <p>Lagune Fitness Club - Rapport généré automatiquement</p>
-          <p>Pour toute question, contactez l'administration</p>
-        </div>
+       
       </body>
       </html>
     `;
@@ -384,11 +344,11 @@ const fetchPaiementsDuJour = async () => {
       const html2pdf = (await import('html2pdf.js')).default;
       
       const options = {
-        margin: [0.5, 0.5, 0.5, 0.5],
+        margin: [0.3, 0.3, 0.3, 0.3],
         filename: `lagune-fitness-rapport-${new Date().toLocaleDateString('fr-FR').replace(/\//g, '-')}.pdf`,
         image: { type: 'jpeg', quality: 0.95 },
         html2canvas: { 
-          scale: 2,
+          scale: 1.5,
           useCORS: true,
           allowTaint: false,
           backgroundColor: '#ffffff',
@@ -534,15 +494,14 @@ const fetchPaiementsDuJour = async () => {
 
             {/* Contenu du rapport */}
             <div className="bg-white rounded-xl shadow-lg overflow-hidden">
-              <div ref={rapportRef} className="p-8">
-                {/* En-tête pour le PDF */}
-                <div className="text-center mb-8 pb-6 border-b-2 border-purple-500">
-                  <h1 className="text-4xl font-bold text-purple-600 mb-2">
+              <div ref={rapportRef} className="p-6">
+                {/* En-tête compact pour le PDF */}
+                <div className="text-center mb-6 pb-4 border-b-2 border-purple-500">
+                  <h1 className="text-2xl font-bold text-purple-600 mb-1">
                     🏋️ Lagune Fitness Club
                   </h1>
-                  <p className="text-gray-600 mb-4">Excellence • Performance • Bien-être</p>
-                  <h2 className="text-2xl font-bold text-gray-800">Rapport Journalier</h2>
-                  <p className="text-gray-600 mt-2">
+                  <h2 className="text-xl font-bold text-gray-800 mb-1">Rapport Journalier</h2>
+                  <p className="text-gray-600 text-sm">
                     {new Date().toLocaleDateString('fr-FR', { 
                       weekday: 'long', 
                       year: 'numeric', 
@@ -552,21 +511,47 @@ const fetchPaiementsDuJour = async () => {
                   </p>
                 </div>
 
+                {/* Statistiques compactes */}
+                <div className="grid grid-cols-4 gap-4 mb-6">
+                  <div className="bg-gray-50 p-3 text-center rounded">
+                    <div className="text-lg font-bold text-purple-600">{paiements.length}</div>
+                    <div className="text-xs text-gray-600">Transactions</div>
+                  </div>
+                  <div className="bg-gray-50 p-3 text-center rounded">
+                    <div className="text-lg font-bold text-green-600">
+                      {paiements.filter(p => p.type === 'Abonnement').length}
+                    </div>
+                    <div className="text-xs text-gray-600">Abonnements</div>
+                  </div>
+                  <div className="bg-gray-50 p-3 text-center rounded">
+                    <div className="text-lg font-bold text-blue-600">
+                      {paiements.filter(p => p.type === 'Séance').length}
+                    </div>
+                    <div className="text-xs text-gray-600">Séances</div>
+                  </div>
+                  <div className="bg-gray-50 p-3 text-center rounded">
+                    <div className="text-lg font-bold text-yellow-600">
+                      {paiements.filter(p => p.type === 'Renouvellement').length}
+                    </div>
+                    <div className="text-xs text-gray-600">Renouvellements</div>
+                  </div>
+                </div>
+
                 {paiements.length > 0 ? (
-                  <div className="overflow-x-auto">
-                    <table className="w-full border-collapse border border-gray-300 rounded-lg overflow-hidden shadow-sm">
+                  <div className="overflow-x-auto mb-4">
+                    <table className="w-full border-collapse border border-gray-300 text-sm">
                       <thead>
                         <tr className="bg-gradient-to-r from-purple-600 to-blue-600 text-white">
-                          <th className="p-4 text-left font-semibold">Type</th>
-                          <th className="p-4 text-left font-semibold">Client</th>
-                          <th className="p-4 text-right font-semibold">Montant (FCFA)</th>
+                          <th className="p-2 text-left font-semibold text-xs">Type</th>
+                          <th className="p-2 text-left font-semibold text-xs">Client</th>
+                          <th className="p-2 text-right font-semibold text-xs">Montant (FCFA)</th>
                         </tr>
                       </thead>
                       <tbody>
                         {paiements.map((p, idx) => (
-                          <tr key={idx} className={`${idx % 2 === 0 ? "bg-gray-50" : "bg-white"} hover:bg-purple-50 transition-colors duration-150`}>
-                            <td className="p-4 border-b border-gray-200">
-                              <span className={`inline-flex px-3 py-1 rounded-full text-xs font-semibold ${
+                          <tr key={idx} className={`${idx % 2 === 0 ? "bg-gray-50" : "bg-white"}`}>
+                            <td className="p-2 border-b border-gray-200">
+                              <span className={`inline-flex px-2 py-1 rounded-full text-xs font-semibold ${
                                 p.type === 'Abonnement' ? 'bg-green-100 text-green-800' :
                                 p.type === 'Séance' ? 'bg-blue-100 text-blue-800' :
                                 'bg-yellow-100 text-yellow-800'
@@ -574,10 +559,10 @@ const fetchPaiementsDuJour = async () => {
                                 {p.type}
                               </span>
                             </td>
-                            <td className="p-4 border-b border-gray-200 font-medium">
+                            <td className="p-2 border-b border-gray-200 font-medium">
                               {p.nom_client || "Anonyme"}
                             </td>
-                            <td className="p-4 border-b border-gray-200 text-right font-bold text-gray-800">
+                            <td className="p-2 border-b border-gray-200 text-right font-bold text-gray-800">
                               {(p.montant || 0).toLocaleString('fr-FR')}
                             </td>
                           </tr>
@@ -586,30 +571,30 @@ const fetchPaiementsDuJour = async () => {
                     </table>
                   </div>
                 ) : (
-                  <div className="text-center py-16">
-                    <div className="text-6xl mb-6 opacity-50">📊</div>
-                    <h3 className="text-xl font-semibold text-gray-700 mb-2">
+                  <div className="text-center py-8">
+                    <div className="text-4xl mb-4 opacity-50">📊</div>
+                    <h3 className="text-lg font-semibold text-gray-700 mb-2">
                       Aucune transaction aujourd&apos;hui
                     </h3>
-                    <p className="text-gray-500">
+                    <p className="text-gray-500 text-sm">
                       Aucun paiement n&apos;a été enregistré pour cette journée.
                     </p>
                   </div>
                 )}
 
-                {/* Total */}
-                <div className="mt-8 bg-gradient-to-r from-gray-800 to-gray-900 text-white p-6 rounded-lg text-center">
-                  <div className="text-3xl font-bold mb-2">
+                {/* Total compact */}
+                <div className="bg-gradient-to-r from-gray-800 to-gray-900 text-white p-4 rounded text-center">
+                  <div className="text-2xl font-bold mb-1">
                     {total.toLocaleString('fr-FR')} FCFA
                   </div>
-                  <div className="text-lg opacity-90">
+                  <div className="text-sm opacity-90">
                     💰 Total des recettes du jour
                   </div>
                 </div>
               </div>
 
               {/* Boutons d'action */}
-              <div className="bg-gray-50 px-8 py-6 border-t border-gray-200">
+              <div className="bg-gray-50 px-6 py-4 border-t border-gray-200">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <button
                     onClick={handlePrintPDF}
@@ -622,31 +607,36 @@ const fetchPaiementsDuJour = async () => {
                     Imprimer / PDF
                   </button>
 
-                  {/* <button
+                  <button
                     onClick={handleDownloadPDF}
                     disabled={loading || pdfLoading}
-                    className="flex items-center justify-center bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-lg transition-all duration-200 transform hover:scale-105 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    {pdfLoading ? (
-                      <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
-                    ) : (
-                      <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                      </svg>
-                    )}
-                    {pdfLoading ? 'Génération...' : 'Télécharger PDF'}
-                  </button> */}
-
-                  {/* <button
-                    onClick={handleDownloadCSV}
-                    disabled={loading}
                     className="flex items-center justify-center bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-6 rounded-lg transition-all duration-200 transform hover:scale-105 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
                   >
+                    {pdfLoading ? (
+                      <>
+                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
+                        Génération...
+                      </>
+                    ) : (
+                      <>
+                        <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                        </svg>
+                        Télécharger PDF
+                      </>
+                    )}
+                  </button>
+
+                  <button
+                    onClick={handleDownloadCSV}
+                    disabled={loading}
+                    className="flex items-center justify-center bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-lg transition-all duration-200 transform hover:scale-105 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
                     <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                     </svg>
                     Exporter CSV
-                  </button> */}
+                  </button>
                 </div>
               </div>
             </div>

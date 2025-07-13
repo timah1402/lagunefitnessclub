@@ -8,6 +8,8 @@ export default function PaiementsPage() {
   const [type, setType] = useState("abonnement");
   const [nom, setNom] = useState("");
   const [montant, setMontant] = useState("");
+  const [montantCustom, setMontantCustom] = useState("");
+  const [isCustomMontant, setIsCustomMontant] = useState(false);
   const [duree, setDuree] = useState("1mois");
   const [dateSeance, setDateSeance] = useState(new Date().toISOString().split('T')[0]);
   const [message, setMessage] = useState("");
@@ -19,6 +21,19 @@ export default function PaiementsPage() {
   const [nomSelectionne, setNomSelectionne] = useState("");
   const [nouveauNom, setNouveauNom] = useState("");
   const [loadingNoms, setLoadingNoms] = useState(false);
+
+  // Options de prix prédéfinis
+  const prixAbonnements = [
+    { value: "15000", label: "15 000 FCFA" },
+    { value: "20000", label: "20 000 FCFA" },
+    { value: "custom", label: "Montant personnalisé" }
+  ];
+
+  const prixSeances = [
+    { value: "1000", label: "1 000 FCFA" },
+    { value: "1500", label: "1 500 FCFA" },
+    { value: "custom", label: "Montant personnalisé" }
+  ];
 
   // Fonction pour récupérer les noms fréquents
   const getNomsFrequents = async () => {
@@ -68,6 +83,23 @@ export default function PaiementsPage() {
       getNomsFrequents();
     }
   }, [type]);
+
+  // Fonction pour enregistrer automatiquement la présence
+  const enregistrerPresence = async (nomClient, typePresence) => {
+    try {
+      await addDoc(collection(db, "presences"), {
+        nom_client: nomClient,
+        date: new Date().toISOString(),
+        type: typePresence,
+        createdAt: serverTimestamp(),
+        auto_generated: true // Flag pour indiquer que c'est automatique
+      });
+      console.log("Présence automatique enregistrée pour:", nomClient);
+    } catch (error) {
+      console.error("Erreur lors de l'enregistrement de la présence automatique:", error);
+      // Ne pas faire échouer le paiement si la présence échoue
+    }
+  };
 
   // Fonction pour mettre à jour les rapports
   const updateReports = async (paiementData, montantPaye) => {
@@ -141,11 +173,22 @@ export default function PaiementsPage() {
     }
   };
 
+  // Fonction pour obtenir le montant final
+  const getMontantFinal = () => {
+    if (isCustomMontant) {
+      return parseInt(montantCustom) || 0;
+    } else {
+      return parseInt(montant) || 0;
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     
+    const montantFinal = getMontantFinal();
+    
     // Validation
-    if (!montant || parseInt(montant) <= 0) {
+    if (!montantFinal || montantFinal <= 0) {
       setMessage("❌ Veuillez entrer un montant valide");
       setTimeout(() => setMessage(""), 3000);
       return;
@@ -154,14 +197,13 @@ export default function PaiementsPage() {
     setIsSubmitting(true);
     
     try {
-      const montantPaye = parseInt(montant);
       const nomFinal = getNomFinal();
       
       // Préparer les données à enregistrer
       const paiementData = {
         type: type,
         nom_client: nomFinal,
-        montant: montantPaye,
+        montant: montantFinal,
         devise: "FCFA",
         createdAt: serverTimestamp(),
         statut: "payé"
@@ -186,18 +228,25 @@ export default function PaiementsPage() {
       console.log("Paiement enregistré avec l'ID:", docRef.id);
       
       // 2. Mettre à jour les rapports
-      await updateReports(paiementData, montantPaye);
+      await updateReports(paiementData, montantFinal);
+      
+      // 3. Enregistrer automatiquement la présence si un nom est fourni
+      if (nomFinal) {
+        await enregistrerPresence(nomFinal, type);
+      }
       
       // Message de succès
       if (type === "abonnement") {
-        setMessage("✅ Abonnement enregistré et rapport mis à jour avec succès !");
+        setMessage("✅ Abonnement enregistré, rapport mis à jour et présence marquée automatiquement !");
       } else {
-        setMessage("✅ Paiement séance enregistré et rapport mis à jour avec succès !");
+        setMessage("✅ Paiement séance enregistré, rapport mis à jour et présence marquée automatiquement !");
       }
       
       // Réinitialiser le formulaire
       setNom("");
       setMontant("");
+      setMontantCustom("");
+      setIsCustomMontant(false);
       setDuree("1mois");
       setDateSeance(new Date().toISOString().split('T')[0]);
       setNomSelectionne("");
@@ -221,13 +270,26 @@ export default function PaiementsPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-indigo-100 via-purple-50 to-teal-100 p-4 flex items-center justify-center">
-      {/* Éléments décoratifs de fond */}
-      <div className="fixed inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute -top-40 -right-40 w-80 h-80 bg-purple-300 rounded-full mix-blend-multiply filter blur-xl opacity-70 animate-pulse"></div>
-        <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-blue-300 rounded-full mix-blend-multiply filter blur-xl opacity-70 animate-pulse"></div>
-        <div className="absolute top-40 left-1/2 w-80 h-80 bg-teal-300 rounded-full mix-blend-multiply filter blur-xl opacity-70 animate-pulse"></div>
-      </div>
+    <div className="min-h-screen bg-gradient-to-br from-indigo-100 via-purple-50 to-teal-100 p-4 flex items-center justify-center relative">
+      {/* Message de succès en haut de l'écran */}
+      {message && (
+        <div className="fixed top-4 left-1/2 transform -translate-x-1/2 z-50 max-w-md w-full mx-4">
+          <div className={`p-4 rounded-xl text-center font-semibold flex items-center justify-center gap-2 shadow-lg backdrop-blur-sm transition-all duration-500 transform ${
+            message.startsWith("✅") 
+              ? "bg-green-100/90 text-green-800 border-2 border-green-200 animate-slideDown" 
+              : "bg-red-100/90 text-red-800 border-2 border-red-200 animate-slideDown"
+          }`}>
+            {message.startsWith("✅") ? (
+              <CheckCircle className="w-5 h-5 text-green-600" />
+            ) : (
+              <span className="text-red-600">❌</span>
+            )}
+            {message}
+          </div>
+        </div>
+      )}
+
+      
 
       <div className="relative w-full max-w-2xl">
         {/* Carte principale avec effet glassmorphism */}
@@ -244,7 +306,7 @@ export default function PaiementsPage() {
               </div>
               <p className="text-blue-100 text-lg">Enregistrez facilement vos abonnements et séances</p>
               <div className="mt-2 text-sm text-blue-200 bg-white/10 px-3 py-1 rounded-full inline-block">
-                📊 Mise à jour automatique des rapports
+                📊 Présence automatique + Mise à jour des rapports
               </div>
             </div>
             <Sparkles className="absolute top-4 right-4 w-6 h-6 text-white/30" />
@@ -342,7 +404,7 @@ export default function PaiementsPage() {
                     </label>
                     <input
                       type="text"
-                      placeholder="Ex: Ndeye seck "
+                      placeholder="Ex: Ndeye Seck"
                       className="w-full border-2 text-gray-500 border-gray-200 p-4 rounded-xl focus:outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100 transition-all bg-gray-50 focus:bg-white"
                       value={nom}
                       onChange={(e) => setNom(e.target.value)}
@@ -411,7 +473,7 @@ export default function PaiementsPage() {
                     ) : (
                       <input
                         type="text"
-                        placeholder="Ex: Marie Dubois"
+                        placeholder="Ex: Ndeye seck"
                         className="w-full border-2 text-gray-500 border-gray-200 p-4 rounded-xl focus:outline-none focus:border-green-500 focus:ring-4 focus:ring-green-100 transition-all bg-gray-50 focus:bg-white"
                         value={nouveauNom}
                         onChange={(e) => setNouveauNom(e.target.value)}
@@ -437,38 +499,66 @@ export default function PaiementsPage() {
                   </div>
                 )}
 
+                {/* Sélection du montant avec options prédéfinies */}
                 <div className="space-y-2">
                   <label className="text-gray-700 font-semibold flex items-center gap-2">
                     <DollarSign className="w-4 h-4 text-gray-500" />
                     Montant payé (FCFA) *
                   </label>
-                  <div className="relative">
-                    <input
-                      type="number"
-                      placeholder="Ex: 20000"
-                      className="w-full text-gray-500 border-2 border-gray-200 p-4 rounded-xl focus:outline-none focus:border-green-500 focus:ring-4 focus:ring-green-100 transition-all bg-gray-50 focus:bg-white pr-16"
-                      value={montant}
-                      onChange={(e) => setMontant(e.target.value)}
-                      required
-                      min="1"
-                    />
-                    <div className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 font-medium">
-                      FCFA
+                  
+                  {/* Menu déroulant pour les montants prédéfinis */}
+                  <select
+                    className="w-full border-2 text-gray-500 border-gray-200 p-4 rounded-xl focus:outline-none focus:border-green-500 focus:ring-4 focus:ring-green-100 transition-all bg-gray-50 focus:bg-white"
+                    value={isCustomMontant ? "custom" : montant}
+                    onChange={(e) => {
+                      if (e.target.value === "custom") {
+                        setIsCustomMontant(true);
+                        setMontant("");
+                      } else {
+                        setIsCustomMontant(false);
+                        setMontant(e.target.value);
+                        setMontantCustom("");
+                      }
+                    }}
+                  >
+                    <option value="">Sélectionnez un montant</option>
+                    {(type === "abonnement" ? prixAbonnements : prixSeances).map((prix, index) => (
+                      <option key={index} value={prix.value}>
+                        {prix.label}
+                      </option>
+                    ))}
+                  </select>
+
+                  {/* Champ personnalisé si "custom" est sélectionné */}
+                  {isCustomMontant && (
+                    <div className="relative mt-3">
+                      <input
+                        type="number"
+                        placeholder="Entrez le montant personnalisé"
+                        className="w-full text-gray-500 border-2 border-gray-200 p-4 rounded-xl focus:outline-none focus:border-green-500 focus:ring-4 focus:ring-green-100 transition-all bg-gray-50 focus:bg-white pr-16"
+                        value={montantCustom}
+                        onChange={(e) => setMontantCustom(e.target.value)}
+                        required
+                        min="1"
+                      />
+                      <div className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 font-medium">
+                        FCFA
+                      </div>
                     </div>
-                  </div>
+                  )}
                 </div>
               </div>
 
-              {/* Information sur la mise à jour des rapports */}
+              {/* Information sur la mise à jour des rapports et présence */}
               <div className="bg-gradient-to-r from-blue-50 to-purple-50 border border-blue-200 rounded-xl p-4">
                 <div className="flex items-center gap-3 text-blue-800">
                   <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center">
                     <TrendingUp className="w-4 h-4 text-white" />
                   </div>
                   <div>
-                    <div className="font-semibold">Mise à jour automatique</div>
+                    <div className="font-semibold">Automatisation complète</div>
                     <div className="text-sm text-blue-600">
-                      Ce paiement sera automatiquement ajouté aux rapports journaliers, mensuels et annuels
+                      Ce paiement sera automatiquement ajouté aux rapports et la présence sera marquée automatiquement
                     </div>
                   </div>
                 </div>
@@ -487,35 +577,37 @@ export default function PaiementsPage() {
                 {isSubmitting ? (
                   <>
                     <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                    Enregistrement et mise à jour...
+                    Enregistrement complet...
                   </>
                 ) : (
                   <>
                     <CheckCircle className="w-5 h-5" />
-                    Enregistrer et Mettre à Jour les Rapports
+                    Enregistrer Paiement + Présence
                   </>
                 )}
               </button>
             </form>
-
-            {/* Message de confirmation avec animation */}
-            {message && (
-              <div className={`mt-6 p-4 rounded-xl text-center font-semibold flex items-center justify-center gap-2 animate-bounce ${
-                message.startsWith("✅") 
-                  ? "bg-green-100 text-green-800 border border-green-200" 
-                  : "bg-red-100 text-red-800 border border-red-200"
-              }`}>
-                {message.startsWith("✅") ? (
-                  <CheckCircle className="w-5 h-5 text-green-600" />
-                ) : (
-                  <span className="text-red-600">❌</span>
-                )}
-                {message}
-              </div>
-            )}
           </div>
         </div>
       </div>
+
+      {/* Animation CSS pour le message */}
+      <style jsx>{`
+        @keyframes slideDown {
+          from {
+            opacity: 0;
+            transform: translateY(-100px) translateX(-50%);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0) translateX(-50%);
+          }
+        }
+        
+        .animate-slideDown {
+          animation: slideDown 0.5s ease-out forwards;
+        }
+      `}</style>
     </div>
   );
 }

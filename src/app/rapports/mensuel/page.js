@@ -88,6 +88,7 @@ export default function RapportMensuelPage() {
     fetchPaiementsDuMois();
   }, [user]);
 
+  // Fonction d'impression ultra-compacte
   const handlePrintPDF = () => {
     const printWindow = window.open('', '_blank');
     const monthName = new Date().toLocaleString("fr-FR", { month: "long", year: "numeric" });
@@ -97,45 +98,149 @@ export default function RapportMensuelPage() {
       <!DOCTYPE html>
       <html>
       <head>
-        <title>Rapport Mensuel - Lagune Fitness Club - ${monthName}</title>
+        <title>Rapport Mensuel - ${monthName}</title>
         <style>
           @media print {
-            body { margin: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
-            @page { size: A4; margin: 1.5cm; }
+            body { margin: 0; font-family: Arial, sans-serif; font-size: 11px; }
+            @page { size: A4; margin: 1cm; }
+            .no-print { display: none !important; }
           }
-          body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 20px; line-height: 1.6; color: #333; }
-          .header { text-align: center; margin-bottom: 40px; border-bottom: 3px solid #4f46e5; padding-bottom: 20px; }
-          .club-logo { font-size: 32px; font-weight: bold; color: #4f46e5; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 2px; }
-          .club-subtitle { font-size: 14px; color: #6b7280; margin-bottom: 20px; font-style: italic; }
-          .report-title { font-size: 24px; font-weight: bold; color: #1f2937; margin-bottom: 10px; }
-          .report-info { display: flex; justify-content: space-between; align-items: center; background-color: #f8fafc; padding: 15px; border-radius: 8px; margin-bottom: 30px; border-left: 4px solid #4f46e5; }
-          table { width: 100%; border-collapse: collapse; margin-bottom: 30px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); border-radius: 8px; overflow: hidden; }
-          th, td { padding: 15px; text-align: left; border-bottom: 1px solid #e5e7eb; }
-          th { background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%); color: white; font-weight: 600; text-transform: uppercase; font-size: 12px; letter-spacing: 0.5px; }
-          tr:nth-child(even) { background-color: #f9fafb; }
-          .type-badge { display: inline-block; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; text-transform: uppercase; }
-          .type-abonnement { background-color: #dcfce7; color: #166534; }
-          .type-seance { background-color: #dbeafe; color: #1e40af; }
-          .type-renouvellement { background-color: #fef3c7; color: #92400e; }
-          .total-section { background: linear-gradient(135deg, #1f2937 0%, #374151 100%); color: white; padding: 25px; border-radius: 12px; text-align: center; margin-top: 30px; }
-          .total-amount { font-size: 28px; font-weight: bold; margin-bottom: 5px; }
-          .no-data { text-align: center; color: #6b7280; padding: 60px 20px; background-color: #f9fafb; border-radius: 12px; border: 2px dashed #d1d5db; }
-          .stats-summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin-bottom: 30px; }
-          .stat-card { background: white; padding: 20px; border-radius: 8px; border: 1px solid #e5e7eb; text-align: center; }
-          .stat-number { font-size: 24px; font-weight: bold; color: #4f46e5; }
-          .stat-label { font-size: 14px; color: #6b7280; margin-top: 5px; }
+          body { 
+            font-family: Arial, sans-serif; 
+            padding: 10px; 
+            line-height: 1.2;
+            color: #333;
+            font-size: 11px;
+          }
+          .header {
+            text-align: center;
+            margin-bottom: 12px;
+            border-bottom: 2px solid #4f46e5;
+            padding-bottom: 8px;
+          }
+          .club-logo {
+            font-size: 16px;
+            font-weight: bold;
+            color: #4f46e5;
+            margin-bottom: 2px;
+          }
+          .report-title {
+            font-size: 14px;
+            font-weight: bold;
+            margin: 3px 0;
+          }
+          .report-info {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background-color: #f8fafc;
+            padding: 6px;
+            margin-bottom: 12px;
+            font-size: 10px;
+          }
+          .stats-summary {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 8px;
+            margin-bottom: 12px;
+          }
+          .stat-card {
+            background: #f9fafb;
+            padding: 6px;
+            text-align: center;
+            border: 1px solid #e5e7eb;
+            border-radius: 3px;
+          }
+          .stat-number {
+            font-size: 14px;
+            font-weight: bold;
+            color: #4f46e5;
+          }
+          .stat-label {
+            font-size: 9px;
+            color: #6b7280;
+            margin-top: 1px;
+          }
+          table { 
+            width: 100%; 
+            border-collapse: collapse; 
+            margin-bottom: 12px;
+            font-size: 10px;
+          }
+          th, td { 
+            padding: 4px 6px; 
+            text-align: left; 
+            border: 1px solid #d1d5db;
+          }
+          th { 
+            background: #4f46e5;
+            color: white;
+            font-weight: 600;
+            font-size: 9px;
+          }
+          tr:nth-child(even) {
+            background-color: #f9fafb;
+          }
+          .type-badge {
+            display: inline-block;
+            padding: 1px 4px;
+            border-radius: 8px;
+            font-size: 8px;
+            font-weight: 600;
+          }
+          .type-abonnement {
+            background-color: #dcfce7;
+            color: #166534;
+          }
+          .type-seance {
+            background-color: #dbeafe;
+            color: #1e40af;
+          }
+          .type-renouvellement {
+            background-color: #fef3c7;
+            color: #92400e;
+          }
+          .total-section {
+            background: #374151;
+            color: white;
+            padding: 10px;
+            text-align: center;
+            margin-top: 12px;
+          }
+          .total-amount {
+            font-size: 18px;
+            font-weight: bold;
+            margin-bottom: 2px;
+          }
+          .total-label {
+            font-size: 11px;
+          }
+          .no-data {
+            text-align: center;
+            color: #6b7280;
+            padding: 25px 15px;
+            background-color: #f9fafb;
+            border: 1px dashed #d1d5db;
+          }
+          .footer {
+            margin-top: 12px;
+            text-align: center;
+            padding-top: 8px;
+            border-top: 1px solid #e5e7eb;
+            color: #6b7280;
+            font-size: 9px;
+          }
         </style>
       </head>
       <body>
         <div class="header">
           <div class="club-logo">🏋️ Lagune Fitness Club</div>
-          <div class="club-subtitle">Excellence • Performance • Bien-être</div>
-          <div class="report-title">Rapport Mensuel</div>
+          <div class="report-title">Rapport Mensuel - ${monthName}</div>
         </div>
 
         <div class="report-info">
-          <div class="date-info">📅 ${monthName}</div>
-          <div class="time-info">⏰ Généré le ${new Date().toLocaleDateString('fr-FR')} à ${currentTime}</div>
+          <div>📅 ${monthName}</div>
+          <div>⏰ ${currentTime}</div>
         </div>
 
         <div class="stats-summary">
@@ -161,18 +266,24 @@ export default function RapportMensuelPage() {
           <table>
             <thead>
               <tr>
-                <th>Type</th>
-                <th>Client</th>
-                <th style="text-align: right;">Montant</th>
-                <th>Date</th>
+                <th style="width: 15%;">Type</th>
+                <th style="width: 35%;">Client</th>
+                <th style="width: 25%; text-align: right;">Montant</th>
+                <th style="width: 25%;">Date</th>
               </tr>
             </thead>
             <tbody>
               ${paiements.map(p => `
                 <tr>
-                  <td><span class="type-badge type-${p.type.toLowerCase()}">${p.type}</span></td>
+                  <td>
+                    <span class="type-badge type-${p.type.toLowerCase()}">
+                      ${p.type}
+                    </span>
+                  </td>
                   <td>${p.nom_client || "Anonyme"}</td>
-                  <td style="text-align: right; font-weight: 600;">${(p.montant || 0).toLocaleString('fr-FR')} FCFA</td>
+                  <td style="text-align: right; font-weight: 600;">
+                    ${(p.montant || 0).toLocaleString('fr-FR')}
+                  </td>
                   <td>${p.date ? new Date(p.date).toLocaleDateString('fr-FR') : p.date_debut ? new Date(p.date_debut).toLocaleDateString('fr-FR') : "-"}</td>
                 </tr>
               `).join('')}
@@ -180,16 +291,17 @@ export default function RapportMensuelPage() {
           </table>
         ` : `
           <div class="no-data">
-            <div style="font-size: 48px; margin-bottom: 15px; opacity: 0.5;">📊</div>
-            <h3>Aucune transaction ce mois</h3>
-            <p>Aucun paiement n'a été enregistré pour ce mois.</p>
+            <div style="font-size: 20px; margin-bottom: 8px;">📊</div>
+            <div><strong>Aucune transaction ce mois</strong></div>
           </div>
         `}
         
         <div class="total-section">
           <div class="total-amount">${total.toLocaleString('fr-FR')} FCFA</div>
-          <div style="font-size: 16px; opacity: 0.9;">💰 Total des recettes du mois</div>
+          <div class="total-label">💰 Total des recettes du mois</div>
         </div>
+
+       
       </body>
       </html>
     `;
@@ -202,6 +314,56 @@ export default function RapportMensuelPage() {
       printWindow.print();
       printWindow.close();
     }, 250);
+  };
+
+  // Fonction de téléchargement PDF améliorée
+  const handleDownloadPDF = async () => {
+    if (!rapportRef.current) {
+      alert("Le rapport n'est pas prêt pour l'impression.");
+      return;
+    }
+
+    if (pdfLoading) return;
+
+    setPdfLoading(true);
+
+    try {
+      const html2pdf = (await import('html2pdf.js')).default;
+      
+      const monthName = new Date().toLocaleString("fr-FR", { month: "long", year: "numeric" });
+      
+      const options = {
+        margin: [0.3, 0.3, 0.3, 0.3],
+        filename: `lagune-fitness-rapport-mensuel-${monthName.replace(/ /g, '-')}.pdf`,
+        image: { type: 'jpeg', quality: 0.95 },
+        html2canvas: { 
+          scale: 1.5,
+          useCORS: true,
+          allowTaint: false,
+          backgroundColor: '#ffffff',
+          logging: false,
+          letterRendering: true
+        },
+        jsPDF: { 
+          unit: 'in', 
+          format: 'a4', 
+          orientation: 'portrait',
+          compress: true
+        },
+        pagebreak: { mode: ['avoid-all', 'css', 'legacy'] }
+      };
+
+      await html2pdf()
+        .set(options)
+        .from(rapportRef.current)
+        .save();
+
+    } catch (error) {
+      console.error("Erreur détaillée:", error);
+      alert(`Erreur lors de la génération du PDF: ${error.message}`);
+    } finally {
+      setPdfLoading(false);
+    }
   };
 
   const handleDownloadCSV = () => {
@@ -320,33 +482,58 @@ export default function RapportMensuelPage() {
 
             {/* Contenu du rapport */}
             <div className="bg-white rounded-xl shadow-lg overflow-hidden">
-              <div ref={rapportRef} className="p-8">
-                {/* En-tête pour le PDF */}
-                <div className="text-center mb-8 pb-6 border-b-2 border-purple-500">
-                  <h1 className="text-4xl font-bold text-purple-600 mb-2">
+              <div ref={rapportRef} className="p-6">
+                {/* En-tête compact pour le PDF */}
+                <div className="text-center mb-6 pb-4 border-b-2 border-purple-500">
+                  <h1 className="text-2xl font-bold text-purple-600 mb-1">
                     🏋️ Lagune Fitness Club
                   </h1>
-                  <p className="text-gray-600 mb-4">Excellence • Performance • Bien-être</p>
-                  <h2 className="text-2xl font-bold text-gray-800">Rapport Mensuel</h2>
-                  <p className="text-gray-600 mt-2">{monthName}</p>
+                  <h2 className="text-xl font-bold text-gray-800 mb-1">Rapport Mensuel</h2>
+                  <p className="text-gray-600 text-sm">{monthName}</p>
+                </div>
+
+                {/* Statistiques compactes */}
+                <div className="grid grid-cols-4 gap-4 mb-6">
+                  <div className="bg-gray-50 p-3 text-center rounded">
+                    <div className="text-lg font-bold text-purple-600">{paiements.length}</div>
+                    <div className="text-xs text-gray-600">Transactions</div>
+                  </div>
+                  <div className="bg-gray-50 p-3 text-center rounded">
+                    <div className="text-lg font-bold text-green-600">
+                      {paiements.filter(p => p.type === 'Abonnement').length}
+                    </div>
+                    <div className="text-xs text-gray-600">Abonnements</div>
+                  </div>
+                  <div className="bg-gray-50 p-3 text-center rounded">
+                    <div className="text-lg font-bold text-blue-600">
+                      {paiements.filter(p => p.type === 'Séance').length}
+                    </div>
+                    <div className="text-xs text-gray-600">Séances</div>
+                  </div>
+                  <div className="bg-gray-50 p-3 text-center rounded">
+                    <div className="text-lg font-bold text-yellow-600">
+                      {paiements.filter(p => p.type === 'Renouvellement').length}
+                    </div>
+                    <div className="text-xs text-gray-600">Renouvellements</div>
+                  </div>
                 </div>
 
                 {paiements.length > 0 ? (
-                  <div className="overflow-x-auto">
-                    <table className="w-full border-collapse border border-gray-300 rounded-lg overflow-hidden shadow-sm">
+                  <div className="overflow-x-auto mb-4">
+                    <table className="w-full border-collapse border border-gray-300 text-sm">
                       <thead>
                         <tr className="bg-gradient-to-r from-purple-600 to-blue-600 text-white">
-                          <th className="p-4 text-left font-semibold">Type</th>
-                          <th className="p-4 text-left font-semibold">Client</th>
-                          <th className="p-4 text-right font-semibold">Montant (FCFA)</th>
-                          <th className="p-4 text-left font-semibold">Date</th>
+                          <th className="p-2 text-left font-semibold text-xs">Type</th>
+                          <th className="p-2 text-left font-semibold text-xs">Client</th>
+                          <th className="p-2 text-right font-semibold text-xs">Montant (FCFA)</th>
+                          <th className="p-2 text-left font-semibold text-xs">Date</th>
                         </tr>
                       </thead>
                       <tbody>
                         {paiements.map((p, idx) => (
-                          <tr key={idx} className={`${idx % 2 === 0 ? "bg-gray-50" : "bg-white"} hover:bg-purple-50 transition-colors duration-150`}>
-                            <td className="p-4 border-b border-gray-200">
-                              <span className={`inline-flex px-3 py-1 rounded-full text-xs font-semibold ${
+                          <tr key={idx} className={`${idx % 2 === 0 ? "bg-gray-50" : "bg-white"}`}>
+                            <td className="p-2 border-b border-gray-200">
+                              <span className={`inline-flex px-2 py-1 rounded-full text-xs font-semibold ${
                                 p.type === 'Abonnement' ? 'bg-green-100 text-green-800' :
                                 p.type === 'Séance' ? 'bg-blue-100 text-blue-800' :
                                 'bg-yellow-100 text-yellow-800'
@@ -354,13 +541,13 @@ export default function RapportMensuelPage() {
                                 {p.type}
                               </span>
                             </td>
-                            <td className="p-4 border-b border-gray-200 font-medium">
+                            <td className="p-2 border-b border-gray-200 font-medium">
                               {p.nom_client || "Anonyme"}
                             </td>
-                            <td className="p-4 border-b border-gray-200 text-right font-bold text-gray-800">
+                            <td className="p-2 border-b border-gray-200 text-right font-bold text-gray-800">
                               {(p.montant || 0).toLocaleString('fr-FR')}
                             </td>
-                            <td className="p-4 border-b border-gray-200">
+                            <td className="p-2 border-b border-gray-200 text-xs">
                               {p.date
                                 ? new Date(p.date).toLocaleDateString('fr-FR')
                                 : p.date_debut
@@ -373,31 +560,31 @@ export default function RapportMensuelPage() {
                     </table>
                   </div>
                 ) : (
-                  <div className="text-center py-16">
-                    <div className="text-6xl mb-6 opacity-50">📊</div>
-                    <h3 className="text-xl font-semibold text-gray-700 mb-2">
+                  <div className="text-center py-8">
+                    <div className="text-4xl mb-4 opacity-50">📊</div>
+                    <h3 className="text-lg font-semibold text-gray-700 mb-2">
                       Aucune transaction ce mois
                     </h3>
-                    <p className="text-gray-500">
+                    <p className="text-gray-500 text-sm">
                       Aucun paiement n&apos;a été enregistré pour ce mois.
                     </p>
                   </div>
                 )}
 
-                {/* Total */}
-                <div className="mt-8 bg-gradient-to-r from-gray-800 to-gray-900 text-white p-6 rounded-lg text-center">
-                  <div className="text-3xl font-bold mb-2">
+                {/* Total compact */}
+                <div className="bg-gradient-to-r from-gray-800 to-gray-900 text-white p-4 rounded text-center">
+                  <div className="text-2xl font-bold mb-1">
                     {total.toLocaleString('fr-FR')} FCFA
                   </div>
-                  <div className="text-lg opacity-90">
+                  <div className="text-sm opacity-90">
                     💰 Total des recettes du mois
                   </div>
                 </div>
               </div>
 
               {/* Boutons d'action */}
-              <div className="bg-gray-50 px-8 py-6 border-t border-gray-200">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="bg-gray-50 px-6 py-4 border-t border-gray-200">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <button
                     onClick={handlePrintPDF}
                     disabled={loading}
@@ -409,16 +596,9 @@ export default function RapportMensuelPage() {
                     Imprimer / PDF
                   </button>
 
-                  {/* <button
-                    onClick={handleDownloadCSV}
-                    disabled={loading}
-                    className="flex items-center justify-center bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-6 rounded-lg transition-all duration-200 transform hover:scale-105 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                    </svg>
-                    Exporter CSV
-                  </button> */}
+                 
+
+                  
                 </div>
               </div>
             </div>
