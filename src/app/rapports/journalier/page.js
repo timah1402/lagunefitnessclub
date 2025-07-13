@@ -559,7 +559,7 @@ export default function RapportJournalierPage() {
                                 {p.type}
                               </span>
                             </td>
-                            <td className="p-2 border-b border-gray-200 font-medium">
+                            <td className="p-2 border-b border-gray-200 font-medium text-black">
                               {p.nom_client || "Anonyme"}
                             </td>
                             <td className="p-2 border-b border-gray-200 text-right font-bold text-gray-800">
@@ -607,36 +607,9 @@ export default function RapportJournalierPage() {
                     Imprimer / PDF
                   </button>
 
-                  <button
-                    onClick={handleDownloadPDF}
-                    disabled={loading || pdfLoading}
-                    className="flex items-center justify-center bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-6 rounded-lg transition-all duration-200 transform hover:scale-105 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    {pdfLoading ? (
-                      <>
-                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
-                        Génération...
-                      </>
-                    ) : (
-                      <>
-                        <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                        </svg>
-                        Télécharger PDF
-                      </>
-                    )}
-                  </button>
+                 
 
-                  <button
-                    onClick={handleDownloadCSV}
-                    disabled={loading}
-                    className="flex items-center justify-center bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-lg transition-all duration-200 transform hover:scale-105 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                    </svg>
-                    Exporter CSV
-                  </button>
+                 
                 </div>
               </div>
             </div>

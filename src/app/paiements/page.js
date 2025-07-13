@@ -41,7 +41,6 @@ export default function PaiementsPage() {
     
     setLoadingNoms(true);
     try {
-      // Récupérer tous les paiements de séances
       const seancesQuery = query(
         collection(db, "seances"),
         where("nom_client", "!=", null),
@@ -51,7 +50,6 @@ export default function PaiementsPage() {
       const seancesSnapshot = await getDocs(seancesQuery);
       const nomsCount = {};
       
-      // Compter les occurrences de chaque nom
       seancesSnapshot.forEach(doc => {
         const nomClient = doc.data().nom_client;
         if (nomClient && nomClient.trim()) {
@@ -60,7 +58,6 @@ export default function PaiementsPage() {
         }
       });
       
-      // Trier par fréquence et prendre les 10 plus fréquents
       const nomsTriés = Object.entries(nomsCount)
         .sort(([,a], [,b]) => b - a)
         .slice(0, 10)
@@ -77,14 +74,12 @@ export default function PaiementsPage() {
     }
   };
 
-  // Charger les noms fréquents quand le type change vers "seance"
   useEffect(() => {
     if (type === "seance") {
       getNomsFrequents();
     }
   }, [type]);
 
-  // Fonction pour enregistrer automatiquement la présence
   const enregistrerPresence = async (nomClient, typePresence) => {
     try {
       await addDoc(collection(db, "presences"), {
@@ -92,32 +87,27 @@ export default function PaiementsPage() {
         date: new Date().toISOString(),
         type: typePresence,
         createdAt: serverTimestamp(),
-        auto_generated: true // Flag pour indiquer que c'est automatique
+        auto_generated: true
       });
       console.log("Présence automatique enregistrée pour:", nomClient);
     } catch (error) {
       console.error("Erreur lors de l'enregistrement de la présence automatique:", error);
-      // Ne pas faire échouer le paiement si la présence échoue
     }
   };
 
-  // Fonction pour mettre à jour les rapports
   const updateReports = async (paiementData, montantPaye) => {
     const now = new Date();
     const mois = now.getMonth() + 1;
     const annee = now.getFullYear();
     const jour = now.getDate();
     
-    // ID du rapport mensuel
     const reportId = `${jour}-${mois}-${annee}`;
     const rapportRef = doc(db, "rapports", reportId);
     
     try {
-      // Vérifier si le rapport existe déjà
       const rapportDoc = await getDoc(rapportRef);
       
       if (rapportDoc.exists()) {
-        // Mettre à jour le rapport existant
         const currentData = rapportDoc.data();
         
         const updatedData = {
@@ -130,7 +120,6 @@ export default function PaiementsPage() {
         await updateDoc(rapportRef, updatedData);
         console.log("Rapport mis à jour:", reportId);
       } else {
-        // Créer un nouveau rapport
         const newRapportData = {
           jour: jour,
           mois: mois,
@@ -153,14 +142,12 @@ export default function PaiementsPage() {
     }
   };
 
-  // Fonction pour enregistrer dans les collections de paiements
   const savePaiement = async (paiementData) => {
     const collectionName = type === "abonnement" ? "abonnements" : "seances";
     const docRef = await addDoc(collection(db, collectionName), paiementData);
     return docRef;
   };
 
-  // Fonction pour obtenir le nom final à utiliser
   const getNomFinal = () => {
     if (type === "abonnement") {
       return nom.trim() || null;
@@ -173,7 +160,6 @@ export default function PaiementsPage() {
     }
   };
 
-  // Fonction pour obtenir le montant final
   const getMontantFinal = () => {
     if (isCustomMontant) {
       return parseInt(montantCustom) || 0;
@@ -187,7 +173,6 @@ export default function PaiementsPage() {
     
     const montantFinal = getMontantFinal();
     
-    // Validation
     if (!montantFinal || montantFinal <= 0) {
       setMessage("❌ Veuillez entrer un montant valide");
       setTimeout(() => setMessage(""), 3000);
@@ -199,7 +184,6 @@ export default function PaiementsPage() {
     try {
       const nomFinal = getNomFinal();
       
-      // Préparer les données à enregistrer
       const paiementData = {
         type: type,
         nom_client: nomFinal,
@@ -209,7 +193,6 @@ export default function PaiementsPage() {
         statut: "payé"
       };
 
-      // Ajouter des champs spécifiques selon le type
       if (type === "abonnement") {
         paiementData.duree = duree;
         const dateDebut = new Date();
@@ -218,31 +201,25 @@ export default function PaiementsPage() {
         paiementData.date_debut = dateDebut.toISOString();
         paiementData.date_fin = dateFin.toISOString();
       } else if (type === "seance") {
-        // Pour les séances, utiliser la date sélectionnée
         const seanceDate = new Date(dateSeance);
         paiementData.date = seanceDate.toISOString();
       }
 
-      // 1. Enregistrer le paiement
       const docRef = await savePaiement(paiementData);
       console.log("Paiement enregistré avec l'ID:", docRef.id);
       
-      // 2. Mettre à jour les rapports
       await updateReports(paiementData, montantFinal);
       
-      // 3. Enregistrer automatiquement la présence si un nom est fourni
       if (nomFinal) {
         await enregistrerPresence(nomFinal, type);
       }
       
-      // Message de succès
       if (type === "abonnement") {
         setMessage("✅ Abonnement enregistré, rapport mis à jour et présence marquée automatiquement !");
       } else {
         setMessage("✅ Paiement séance enregistré, rapport mis à jour et présence marquée automatiquement !");
       }
       
-      // Réinitialiser le formulaire
       setNom("");
       setMontant("");
       setMontantCustom("");
@@ -253,7 +230,6 @@ export default function PaiementsPage() {
       setNouveauNom("");
       setIsNouveauNom(false);
       
-      // Recharger les noms fréquents si c'était un nouveau nom
       if (type === "seance" && isNouveauNom && nouveauNom.trim()) {
         getNomsFrequents();
       }
@@ -263,88 +239,83 @@ export default function PaiementsPage() {
       setMessage("❌ Erreur lors de l'enregistrement: " + error.message);
     } finally {
       setIsSubmitting(false);
-      
-      // Effacer le message après 5 secondes
       setTimeout(() => setMessage(""), 5000);
     }
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-indigo-100 via-purple-50 to-teal-100 p-4 flex items-center justify-center relative">
-      {/* Message de succès en haut de l'écran */}
+    <div className="h-screen bg-gradient-to-br from-indigo-100 via-purple-50 to-teal-100 p-3 flex items-center justify-center relative overflow-hidden">
+      {/* Message de succès */}
       {message && (
-        <div className="fixed top-4 left-1/2 transform -translate-x-1/2 z-50 max-w-md w-full mx-4">
-          <div className={`p-4 rounded-xl text-center font-semibold flex items-center justify-center gap-2 shadow-lg backdrop-blur-sm transition-all duration-500 transform ${
+        <div className="fixed top-3 left-1/2 transform -translate-x-1/2 z-50 max-w-md w-full mx-4">
+          <div className={`p-3 rounded-xl text-center font-semibold flex items-center justify-center gap-2 shadow-lg backdrop-blur-sm transition-all duration-500 transform ${
             message.startsWith("✅") 
               ? "bg-green-100/90 text-green-800 border-2 border-green-200 animate-slideDown" 
               : "bg-red-100/90 text-red-800 border-2 border-red-200 animate-slideDown"
           }`}>
             {message.startsWith("✅") ? (
-              <CheckCircle className="w-5 h-5 text-green-600" />
+              <CheckCircle className="w-4 h-4 text-green-600" />
             ) : (
               <span className="text-red-600">❌</span>
             )}
-            {message}
+            <span className="text-sm">{message}</span>
           </div>
         </div>
       )}
 
-      
-
-      <div className="relative w-full max-w-2xl">
-        {/* Carte principale avec effet glassmorphism */}
-        <div className="bg-white/80 backdrop-blur-xl rounded-3xl shadow-2xl border border-white/20 overflow-hidden">
-          {/* Header avec gradient */}
-          <div className="bg-gradient-to-r from-blue-600 via-purple-600 to-teal-600 p-8 text-white relative overflow-hidden">
+      <div className="relative w-full max-w-4xl h-full max-h-[95vh]">
+        {/* Carte principale optimisée */}
+        <div className="bg-white/80 backdrop-blur-xl rounded-2xl shadow-2xl border border-white/20 overflow-hidden h-full flex flex-col">
+          {/* Header compact */}
+          <div className="bg-gradient-to-r from-blue-600 via-purple-600 to-teal-600 p-4 text-white relative overflow-hidden flex-shrink-0">
             <div className="absolute inset-0 bg-black/10"></div>
             <div className="relative z-10">
-              <div className="flex items-center gap-3 mb-2">
-                <div className="p-2 bg-white/20 rounded-xl backdrop-blur-sm">
-                  <CreditCard className="w-8 h-8" />
+              <div className="flex items-center gap-2 mb-1">
+                <div className="p-1.5 bg-white/20 rounded-lg backdrop-blur-sm">
+                  <CreditCard className="w-5 h-5" />
                 </div>
-                <h1 className="text-3xl font-bold">Gestion des Paiements</h1>
+                <h1 className="text-xl font-bold">Gestion des Paiements</h1>
               </div>
-              <p className="text-blue-100 text-lg">Enregistrez facilement vos abonnements et séances</p>
-              <div className="mt-2 text-sm text-blue-200 bg-white/10 px-3 py-1 rounded-full inline-block">
-                📊 Présence automatique + Mise à jour des rapports
+              <p className="text-blue-100 text-sm">Enregistrez facilement vos abonnements et séances</p>
+              <div className="mt-1 text-xs text-blue-200 bg-white/10 px-2 py-0.5 rounded-full inline-block">
+                📊 Présence automatique + Rapports
               </div>
             </div>
-            <Sparkles className="absolute top-4 right-4 w-6 h-6 text-white/30" />
-            <Sparkles className="absolute bottom-8 right-8 w-4 h-4 text-white/20" />
+            <Sparkles className="absolute top-2 right-2 w-4 h-4 text-white/30" />
           </div>
 
-          <div className="p-8">
-            <form onSubmit={handleSubmit} className="space-y-8">
-              {/* Sélecteur de type avec animation */}
-              <div className="space-y-4">
-                <h3 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
-                  <TrendingUp className="w-5 h-5 text-purple-600" />
+          <div className="p-4 flex-1 overflow-y-auto">
+            <form onSubmit={handleSubmit} className="space-y-4">
+              {/* Sélecteur de type compact */}
+              <div className="space-y-2">
+                <h3 className="text-sm font-semibold text-gray-800 flex items-center gap-1">
+                  <TrendingUp className="w-4 h-4 text-purple-600" />
                   Type de paiement
                 </h3>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-2 gap-3">
                   <button
                     type="button"
                     onClick={() => setType("abonnement")}
-                    className={`group relative p-6 rounded-2xl border-2 transition-all duration-300 ${
+                    className={`group relative p-3 rounded-xl border-2 transition-all duration-300 ${
                       type === "abonnement"
-                        ? "border-blue-500 bg-gradient-to-br from-blue-50 to-purple-50 shadow-lg scale-105"
-                        : "border-gray-200 bg-white hover:border-gray-300 hover:shadow-md"
+                        ? "border-blue-500 bg-gradient-to-br from-blue-50 to-purple-50 shadow-md scale-105"
+                        : "border-gray-200 bg-white hover:border-gray-300"
                     }`}
                   >
-                    <div className="flex flex-col items-center space-y-3">
-                      <div className={`p-3 rounded-xl transition-colors ${
-                        type === "abonnement" ? "bg-blue-500 text-white" : "bg-gray-100 text-gray-600 group-hover:bg-gray-200"
+                    <div className="flex flex-col items-center space-y-1">
+                      <div className={`p-2 rounded-lg transition-colors ${
+                        type === "abonnement" ? "bg-blue-500 text-white" : "bg-gray-100 text-gray-600"
                       }`}>
-                        <CalendarDays className="w-6 h-6" />
+                        <CalendarDays className="w-4 h-4" />
                       </div>
                       <div className="text-center">
-                        <div className="font-semibold text-gray-800">Abonnement</div>
-                        <div className="text-sm text-gray-500">Engagement mensuel ou annuel</div>
+                        <div className="font-medium text-sm text-gray-800">Abonnement</div>
+                        <div className="text-xs text-gray-500">Mensuel/Annuel</div>
                       </div>
                     </div>
                     {type === "abonnement" && (
-                      <div className="absolute -top-2 -right-2 w-6 h-6 bg-green-500 rounded-full flex items-center justify-center">
-                        <CheckCircle className="w-4 h-4 text-white" />
+                      <div className="absolute -top-1 -right-1 w-4 h-4 bg-green-500 rounded-full flex items-center justify-center">
+                        <CheckCircle className="w-3 h-3 text-white" />
                       </div>
                     )}
                   </button>
@@ -352,129 +323,121 @@ export default function PaiementsPage() {
                   <button
                     type="button"
                     onClick={() => setType("seance")}
-                    className={`group relative p-6 rounded-2xl border-2 transition-all duration-300 ${
+                    className={`group relative p-3 rounded-xl border-2 transition-all duration-300 ${
                       type === "seance"
-                        ? "border-purple-500 bg-gradient-to-br from-purple-50 to-teal-50 shadow-lg scale-105"
-                        : "border-gray-200 bg-white hover:border-gray-300 hover:shadow-md"
+                        ? "border-purple-500 bg-gradient-to-br from-purple-50 to-teal-50 shadow-md scale-105"
+                        : "border-gray-200 bg-white hover:border-gray-300"
                     }`}
                   >
-                    <div className="flex flex-col items-center space-y-3">
-                      <div className={`p-3 rounded-xl transition-colors ${
-                        type === "seance" ? "bg-purple-500 text-white" : "bg-gray-100 text-gray-600 group-hover:bg-gray-200"
+                    <div className="flex flex-col items-center space-y-1">
+                      <div className={`p-2 rounded-lg transition-colors ${
+                        type === "seance" ? "bg-purple-500 text-white" : "bg-gray-100 text-gray-600"
                       }`}>
-                        <User className="w-6 h-6" />
+                        <User className="w-4 h-4" />
                       </div>
                       <div className="text-center">
-                        <div className="font-semibold text-gray-800">Séance</div>
-                        <div className="text-sm text-gray-500">Paiement ponctuel</div>
+                        <div className="font-medium text-sm text-gray-800">Séance</div>
+                        <div className="text-xs text-gray-500">Ponctuel</div>
                       </div>
                     </div>
                     {type === "seance" && (
-                      <div className="absolute -top-2 -right-2 w-6 h-6 bg-green-500 rounded-full flex items-center justify-center">
-                        <CheckCircle className="w-4 h-4 text-white" />
+                      <div className="absolute -top-1 -right-1 w-4 h-4 bg-green-500 rounded-full flex items-center justify-center">
+                        <CheckCircle className="w-3 h-3 text-white" />
                       </div>
                     )}
                   </button>
                 </div>
               </div>
 
-              {/* Champs du formulaire */}
-              <div className="space-y-6">
+              {/* Grille pour optimiser l'espace */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Date pour séance */}
                 {type === "seance" && (
-                  <div className="space-y-2">
-                    <label className="text-gray-700 font-semibold flex items-center gap-2">
-                      <CalendarDays className="w-4 h-4 text-gray-500" />
+                  <div className="space-y-1">
+                    <label className="text-gray-700 text-sm font-medium flex items-center gap-1">
+                      <CalendarDays className="w-3 h-3 text-gray-500" />
                       Date de la séance
                     </label>
                     <input
                       type="date"
-                      className="w-full border-2 text-gray-500 border-gray-200 p-4 rounded-xl focus:outline-none focus:border-purple-500 focus:ring-4 focus:ring-purple-100 transition-all bg-gray-50 focus:bg-white"
+                      className="w-full border-2 text-gray-500 text-sm border-gray-200 p-2.5 rounded-lg focus:outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-100 transition-all bg-gray-50 focus:bg-white"
                       value={dateSeance}
                       onChange={(e) => setDateSeance(e.target.value)}
                     />
                   </div>
                 )}
 
-                {/* Gestion du nom - différent selon le type */}
+                {/* Nom du client */}
                 {type === "abonnement" ? (
-                  <div className="space-y-2">
-                    <label className="text-gray-700 font-semibold flex items-center gap-2">
-                      <User className="w-4 h-4 text-gray-500" />
+                  <div className="space-y-1">
+                    <label className="text-gray-700 text-sm font-medium flex items-center gap-1">
+                      <User className="w-3 h-3 text-gray-500" />
                       Nom du client
                     </label>
                     <input
                       type="text"
                       placeholder="Ex: Ndeye Seck"
-                      className="w-full border-2 text-gray-500 border-gray-200 p-4 rounded-xl focus:outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100 transition-all bg-gray-50 focus:bg-white"
+                      className="w-full border-2 text-gray-500 text-sm border-gray-200 p-2.5 rounded-lg focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition-all bg-gray-50 focus:bg-white"
                       value={nom}
                       onChange={(e) => setNom(e.target.value)}
                     />
                   </div>
                 ) : (
-                  <div className="space-y-4">
-                    <label className="text-gray-700 font-semibold flex items-center gap-2">
-                      <User className="w-4 h-4 text-gray-500" />
+                  <div className="space-y-2">
+                    <label className="text-gray-700 text-sm font-medium flex items-center gap-1">
+                      <User className="w-3 h-3 text-gray-500" />
                       Nom du client
                     </label>
                     
-                    {/* Boutons de choix */}
-                    <div className="grid grid-cols-2 gap-3">
+                    <div className="grid grid-cols-2 gap-2">
                       <button
                         type="button"
                         onClick={() => setIsNouveauNom(false)}
-                        className={`p-3 rounded-xl border-2 transition-all duration-300 flex items-center justify-center gap-2 ${
+                        className={`p-2 rounded-lg border transition-all text-xs flex items-center justify-center gap-1 ${
                           !isNouveauNom 
                             ? "border-blue-500 bg-blue-50 text-blue-700" 
-                            : "border-gray-200 bg-white text-gray-600 hover:border-gray-300"
+                            : "border-gray-200 bg-white text-gray-600"
                         }`}
                       >
-                        <UserCheck className="w-4 h-4" />
-                        <span className="text-sm font-medium">Client habituel</span>
+                        <UserCheck className="w-3 h-3" />
+                        Habituel
                       </button>
                       <button
                         type="button"
                         onClick={() => setIsNouveauNom(true)}
-                        className={`p-3 rounded-xl border-2 transition-all duration-300 flex items-center justify-center gap-2 ${
+                        className={`p-2 rounded-lg border transition-all text-xs flex items-center justify-center gap-1 ${
                           isNouveauNom 
                             ? "border-green-500 bg-green-50 text-green-700" 
-                            : "border-gray-200 bg-white text-gray-600 hover:border-gray-300"
+                            : "border-gray-200 bg-white text-gray-600"
                         }`}
                       >
-                        <Plus className="w-4 h-4" />
-                        <span className="text-sm font-medium">Nouveau client</span>
+                        <Plus className="w-3 h-3" />
+                        Nouveau
                       </button>
                     </div>
 
-                    {/* Champ conditionnel */}
                     {!isNouveauNom ? (
-                      <div className="space-y-2">
-                        <select
-                          className="w-full border-2 text-gray-500 border-gray-200 p-4 rounded-xl focus:outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100 transition-all bg-gray-50 focus:bg-white"
-                          value={nomSelectionne}
-                          onChange={(e) => setNomSelectionne(e.target.value)}
-                        >
-                          <option value="">Sélectionnez un client habituel</option>
-                          {loadingNoms ? (
-                            <option disabled>Chargement...</option>
-                          ) : (
-                            nomsFrequents.map((client, index) => (
-                              <option key={index} value={client.nom}>
-                                {client.nom} ({client.count} séance{client.count > 1 ? 's' : ''})
-                              </option>
-                            ))
-                          )}
-                        </select>
-                        {nomsFrequents.length === 0 && !loadingNoms && (
-                          <p className="text-sm text-gray-500 bg-gray-50 p-3 rounded-lg">
-                            Aucun client habituel trouvé. Commencez par ajouter un nouveau client.
-                          </p>
+                      <select
+                        className="w-full border-2 text-gray-500 text-sm border-gray-200 p-2.5 rounded-lg focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition-all bg-gray-50 focus:bg-white"
+                        value={nomSelectionne}
+                        onChange={(e) => setNomSelectionne(e.target.value)}
+                      >
+                        <option value="">Sélectionnez un client</option>
+                        {loadingNoms ? (
+                          <option disabled>Chargement...</option>
+                        ) : (
+                          nomsFrequents.map((client, index) => (
+                            <option key={index} value={client.nom}>
+                              {client.nom} ({client.count})
+                            </option>
+                          ))
                         )}
-                      </div>
+                      </select>
                     ) : (
                       <input
                         type="text"
                         placeholder="Ex: Ndeye seck"
-                        className="w-full border-2 text-gray-500 border-gray-200 p-4 rounded-xl focus:outline-none focus:border-green-500 focus:ring-4 focus:ring-green-100 transition-all bg-gray-50 focus:bg-white"
+                        className="w-full border-2 text-gray-500 text-sm border-gray-200 p-2.5 rounded-lg focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-100 transition-all bg-gray-50 focus:bg-white"
                         value={nouveauNom}
                         onChange={(e) => setNouveauNom(e.target.value)}
                       />
@@ -482,33 +445,33 @@ export default function PaiementsPage() {
                   </div>
                 )}
 
+                {/* Durée pour abonnement */}
                 {type === "abonnement" && (
-                  <div className="space-y-2">
-                    <label className="text-gray-700 font-semibold flex items-center gap-2">
-                      <Clock className="w-4 h-4 text-gray-500" />
-                      Durée de l&apos;abonnement
+                  <div className="space-y-1">
+                    <label className="text-gray-700 text-sm font-medium flex items-center gap-1">
+                      <Clock className="w-3 h-3 text-gray-500" />
+                      Durée
                     </label>
                     <select
-                      className="w-full border-2 text-gray-500 border-gray-200 p-4 rounded-xl focus:outline-none focus:border-purple-500 focus:ring-4 focus:ring-purple-100 transition-all bg-gray-50 focus:bg-white"
+                      className="w-full border-2 text-gray-500 text-sm border-gray-200 p-2.5 rounded-lg focus:outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-100 transition-all bg-gray-50 focus:bg-white"
                       value={duree}
                       onChange={(e) => setDuree(e.target.value)}
                     >
-                      <option value="1mois">1 mois - Flexibilité maximale</option>
-                      <option value="1an">1 an - Meilleur rapport qualité/prix</option>
+                      <option value="1mois">1 mois</option>
+                      <option value="1an">1 an</option>
                     </select>
                   </div>
                 )}
 
-                {/* Sélection du montant avec options prédéfinies */}
-                <div className="space-y-2">
-                  <label className="text-gray-700 font-semibold flex items-center gap-2">
-                    <DollarSign className="w-4 h-4 text-gray-500" />
-                    Montant payé (FCFA) *
+                {/* Montant */}
+                <div className="space-y-1 md:col-span-2">
+                  <label className="text-gray-700 text-sm font-medium flex items-center gap-1">
+                    <DollarSign className="w-3 h-3 text-gray-500" />
+                    Montant (FCFA) *
                   </label>
                   
-                  {/* Menu déroulant pour les montants prédéfinis */}
                   <select
-                    className="w-full border-2 text-gray-500 border-gray-200 p-4 rounded-xl focus:outline-none focus:border-green-500 focus:ring-4 focus:ring-green-100 transition-all bg-gray-50 focus:bg-white"
+                    className="w-full border-2 text-gray-500 text-sm border-gray-200 p-2.5 rounded-lg focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-100 transition-all bg-gray-50 focus:bg-white"
                     value={isCustomMontant ? "custom" : montant}
                     onChange={(e) => {
                       if (e.target.value === "custom") {
@@ -529,19 +492,18 @@ export default function PaiementsPage() {
                     ))}
                   </select>
 
-                  {/* Champ personnalisé si "custom" est sélectionné */}
                   {isCustomMontant && (
-                    <div className="relative mt-3">
+                    <div className="relative mt-2">
                       <input
                         type="number"
-                        placeholder="Entrez le montant personnalisé"
-                        className="w-full text-gray-500 border-2 border-gray-200 p-4 rounded-xl focus:outline-none focus:border-green-500 focus:ring-4 focus:ring-green-100 transition-all bg-gray-50 focus:bg-white pr-16"
+                        placeholder="Montant personnalisé"
+                        className="w-full text-gray-500 text-sm border-2 border-gray-200 p-2.5 rounded-lg focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-100 transition-all bg-gray-50 focus:bg-white pr-12"
                         value={montantCustom}
                         onChange={(e) => setMontantCustom(e.target.value)}
                         required
                         min="1"
                       />
-                      <div className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 font-medium">
+                      <div className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 text-xs font-medium">
                         FCFA
                       </div>
                     </div>
@@ -549,26 +511,26 @@ export default function PaiementsPage() {
                 </div>
               </div>
 
-              {/* Information sur la mise à jour des rapports et présence */}
-              <div className="bg-gradient-to-r from-blue-50 to-purple-50 border border-blue-200 rounded-xl p-4">
-                <div className="flex items-center gap-3 text-blue-800">
-                  <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center">
-                    <TrendingUp className="w-4 h-4 text-white" />
+              {/* Info automatisation compacte */}
+              <div className="bg-gradient-to-r from-blue-50 to-purple-50 border border-blue-200 rounded-lg p-3">
+                <div className="flex items-center gap-2 text-blue-800">
+                  <div className="w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center flex-shrink-0">
+                    <TrendingUp className="w-3 h-3 text-white" />
                   </div>
                   <div>
-                    <div className="font-semibold">Automatisation complète</div>
-                    <div className="text-sm text-blue-600">
-                      Ce paiement sera automatiquement ajouté aux rapports et la présence sera marquée automatiquement
+                    <div className="font-medium text-sm">Automatisation complète</div>
+                    <div className="text-xs text-blue-600">
+                      Paiement + Rapport + Présence automatique
                     </div>
                   </div>
                 </div>
               </div>
 
-              {/* Bouton de soumission avec loading */}
+              {/* Bouton compact */}
               <button
                 type="submit"
                 disabled={isSubmitting}
-                className={`w-full p-4 rounded-xl font-bold text-lg flex items-center justify-center gap-3 transition-all duration-300 ${
+                className={`w-full p-3 rounded-lg font-bold text-sm flex items-center justify-center gap-2 transition-all duration-300 ${
                   isSubmitting
                     ? "bg-gray-400 cursor-not-allowed"
                     : "bg-gradient-to-r from-green-500 to-teal-500 hover:from-green-600 hover:to-teal-600 text-white shadow-lg hover:shadow-xl transform hover:scale-105"
@@ -576,12 +538,12 @@ export default function PaiementsPage() {
               >
                 {isSubmitting ? (
                   <>
-                    <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                    Enregistrement complet...
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                    Enregistrement...
                   </>
                 ) : (
                   <>
-                    <CheckCircle className="w-5 h-5" />
+                    <CheckCircle className="w-4 h-4" />
                     Enregistrer Paiement + Présence
                   </>
                 )}
@@ -591,7 +553,6 @@ export default function PaiementsPage() {
         </div>
       </div>
 
-      {/* Animation CSS pour le message */}
       <style jsx>{`
         @keyframes slideDown {
           from {

@@ -541,7 +541,7 @@ export default function RapportMensuelPage() {
                                 {p.type}
                               </span>
                             </td>
-                            <td className="p-2 border-b border-gray-200 font-medium">
+                            <td className="p-2 border-b border-gray-200 font-medium text-black">
                               {p.nom_client || "Anonyme"}
                             </td>
                             <td className="p-2 border-b border-gray-200 text-right font-bold text-gray-800">

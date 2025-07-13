@@ -63,9 +63,33 @@ export default function PresencesPage() {
       );
       
       const snapshot = await getDocs(abonnementsQuery);
-      const abonnementsActifsData = [];
       
+      // Récupérer les présences d'aujourd'hui pour filtrer
+      const startOfDay = new Date();
+      startOfDay.setHours(0, 0, 0, 0);
+      const endOfDay = new Date();
+      endOfDay.setHours(23, 59, 59, 999);
+      
+      const presencesTodayQuery = query(
+        collection(db, "presences"),
+        where("date", ">=", startOfDay.toISOString()),
+        where("date", "<=", endOfDay.toISOString())
+      );
+      const presencesTodaySnapshot = await getDocs(presencesTodayQuery);
+      
+      // Créer un Set des noms déjà présents aujourd'hui
+      const clientsPresentAujourdhui = new Set();
+      presencesTodaySnapshot.forEach(doc => {
+        const data = doc.data();
+        if (data.nom_client) {
+          clientsPresentAujourdhui.add(data.nom_client.toLowerCase());
+        }
+      });
+      
+      console.log("Clients déjà présents aujourd'hui:", Array.from(clientsPresentAujourdhui));
       console.log("Nombre total d'abonnements trouvés:", snapshot.size);
+      
+      const abonnementsActifsData = [];
       
       snapshot.forEach((doc) => {
         const data = doc.data();
@@ -82,9 +106,16 @@ export default function PresencesPage() {
           if (dateDebut <= today && dateFin >= today) {
             console.log("Abonnement actif trouvé pour:", data.nom_client);
             
+            // Vérifier si le client n'est pas déjà présent aujourd'hui
+            const nomClientLower = data.nom_client.toLowerCase();
+            if (clientsPresentAujourdhui.has(nomClientLower)) {
+              console.log("Client déjà présent aujourd'hui, exclu de la liste:", data.nom_client);
+              return; // Passer au suivant
+            }
+            
             // Éviter les doublons
             const existe = abonnementsActifsData.find(
-              client => client.nom.toLowerCase() === data.nom_client.toLowerCase()
+              client => client.nom.toLowerCase() === nomClientLower
             );
             
             if (!existe) {
@@ -102,7 +133,7 @@ export default function PresencesPage() {
         }
       });
 
-      console.log("Abonnements actifs finaux:", abonnementsActifsData);
+      console.log("Abonnements actifs finaux (non présents aujourd'hui):", abonnementsActifsData);
       setAbonnementsActifs(abonnementsActifsData);
     } catch (error) {
       console.error("Erreur lors de la récupération des abonnements actifs:", error);
@@ -285,8 +316,8 @@ export default function PresencesPage() {
       // Réinitialiser les champs
       setNomSelectionne("");
       
-      // Recharger les statistiques
-      fetchStats();
+      // Recharger les abonnements actifs pour mettre à jour la liste
+      loadAbonnementsActifs();
       
     } catch (error) {
       console.error("Erreur:", error);
@@ -391,10 +422,14 @@ export default function PresencesPage() {
                   </select>
                   
                   {/* Messages informatifs */}
-                  {!loadingClients && abonnementsActifs.length === 0 && (
-                    <p className="text-sm text-amber-600 bg-amber-50 p-3 rounded-lg border border-amber-200">
-                      ⚠️ Aucun abonnement actif trouvé. Vérifiez que des abonnements sont enregistrés et non expirés.
-                    </p>
+                  {!loadingClients && (
+                    <>
+                      {abonnementsActifs.length === 0 && (
+                        <p className="text-sm text-amber-600 bg-amber-50 p-3 rounded-lg border border-amber-200">
+                          ⚠️ Aucun abonné disponible. Soit il n'y a pas d'abonnements actifs, soit tous les abonnés sont déjà présents aujourd'hui.
+                        </p>
+                      )}
+                    </>
                   )}
                 </div>
               </div>
