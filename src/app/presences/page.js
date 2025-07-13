@@ -426,7 +426,7 @@ export default function PresencesPage() {
                     <>
                       {abonnementsActifs.length === 0 && (
                         <p className="text-sm text-amber-600 bg-amber-50 p-3 rounded-lg border border-amber-200">
-                          ⚠️ Aucun abonné disponible. Soit il n'y a pas d'abonnements actifs, soit tous les abonnés sont déjà présents aujourd'hui.
+                          ⚠️ Aucun abonné disponible. Soit il n&apos;y a pas d&apos;abonnements actifs, soit tous les abonnés sont déjà présents aujourd&apos;hui.
                         </p>
                       )}
                     </>
