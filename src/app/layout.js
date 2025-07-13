@@ -125,7 +125,7 @@ function MainLayout({ children }) {
           <header className="lg:hidden bg-white shadow-sm border-b p-4 flex items-center justify-between">
             <button
               onClick={toggleSidebar}
-              className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+              className="p-2 hover:bg-gray-100 rounded-lg transition-colors text-black"
             >
               <Menu size={24} />
             </button>

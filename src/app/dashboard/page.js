@@ -270,7 +270,7 @@ export default function DashboardPage() {
             </div>
             <div className="flex items-center space-x-4">
               <div className="text-right">
-                <p className="text-sm text-gray-500">Aujourd&apos;hui</p>
+                {/* <p className="text-sm text-gray-500">Aujourd&apos;hui</p> */}
                 <p className="text-lg font-semibold text-gray-900">
                   {new Date().toLocaleDateString('fr-FR', { 
                     weekday: 'long', 
