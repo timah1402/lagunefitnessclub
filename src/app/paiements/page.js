@@ -1,8 +1,8 @@
 "use client";
-import { useState } from "react";
-import { CreditCard, User, CalendarDays, CheckCircle, Sparkles, TrendingUp, Clock, DollarSign } from "lucide-react";
+import { useState, useEffect } from "react";
+import { CreditCard, User, CalendarDays, CheckCircle, Sparkles, TrendingUp, Clock, DollarSign, Plus, UserCheck } from "lucide-react";
 import { db } from "../lib/firebase"; // Ajustez le chemin selon votre structure
-import { collection, addDoc, serverTimestamp, doc, updateDoc, getDoc, setDoc } from "firebase/firestore";
+import { collection, addDoc, serverTimestamp, doc, updateDoc, getDoc, setDoc, query, where, getDocs, limit, orderBy } from "firebase/firestore";
 
 export default function PaiementsPage() {
   const [type, setType] = useState("abonnement");
@@ -12,6 +12,62 @@ export default function PaiementsPage() {
   const [dateSeance, setDateSeance] = useState(new Date().toISOString().split('T')[0]);
   const [message, setMessage] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  
+  // Nouveaux états pour la gestion des noms
+  const [nomsFrequents, setNomsFrequents] = useState([]);
+  const [isNouveauNom, setIsNouveauNom] = useState(false);
+  const [nomSelectionne, setNomSelectionne] = useState("");
+  const [nouveauNom, setNouveauNom] = useState("");
+  const [loadingNoms, setLoadingNoms] = useState(false);
+
+  // Fonction pour récupérer les noms fréquents
+  const getNomsFrequents = async () => {
+    if (type !== "seance") return;
+    
+    setLoadingNoms(true);
+    try {
+      // Récupérer tous les paiements de séances
+      const seancesQuery = query(
+        collection(db, "seances"),
+        where("nom_client", "!=", null),
+        orderBy("nom_client")
+      );
+      
+      const seancesSnapshot = await getDocs(seancesQuery);
+      const nomsCount = {};
+      
+      // Compter les occurrences de chaque nom
+      seancesSnapshot.forEach(doc => {
+        const nomClient = doc.data().nom_client;
+        if (nomClient && nomClient.trim()) {
+          const nomFormate = nomClient.trim().toLowerCase();
+          nomsCount[nomFormate] = (nomsCount[nomFormate] || 0) + 1;
+        }
+      });
+      
+      // Trier par fréquence et prendre les 10 plus fréquents
+      const nomsTriés = Object.entries(nomsCount)
+        .sort(([,a], [,b]) => b - a)
+        .slice(0, 10)
+        .map(([nom, count]) => ({
+          nom: nom.split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' '),
+          count: count
+        }));
+      
+      setNomsFrequents(nomsTriés);
+    } catch (error) {
+      console.error("Erreur lors de la récupération des noms fréquents:", error);
+    } finally {
+      setLoadingNoms(false);
+    }
+  };
+
+  // Charger les noms fréquents quand le type change vers "seance"
+  useEffect(() => {
+    if (type === "seance") {
+      getNomsFrequents();
+    }
+  }, [type]);
 
   // Fonction pour mettre à jour les rapports
   const updateReports = async (paiementData, montantPaye) => {
@@ -72,6 +128,19 @@ export default function PaiementsPage() {
     return docRef;
   };
 
+  // Fonction pour obtenir le nom final à utiliser
+  const getNomFinal = () => {
+    if (type === "abonnement") {
+      return nom.trim() || null;
+    } else {
+      if (isNouveauNom) {
+        return nouveauNom.trim() || null;
+      } else {
+        return nomSelectionne || null;
+      }
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     
@@ -86,11 +155,12 @@ export default function PaiementsPage() {
     
     try {
       const montantPaye = parseInt(montant);
+      const nomFinal = getNomFinal();
       
       // Préparer les données à enregistrer
       const paiementData = {
         type: type,
-        nom_client: nom.trim() || null,
+        nom_client: nomFinal,
         montant: montantPaye,
         devise: "FCFA",
         createdAt: serverTimestamp(),
@@ -130,6 +200,14 @@ export default function PaiementsPage() {
       setMontant("");
       setDuree("1mois");
       setDateSeance(new Date().toISOString().split('T')[0]);
+      setNomSelectionne("");
+      setNouveauNom("");
+      setIsNouveauNom(false);
+      
+      // Recharger les noms fréquents si c'était un nouveau nom
+      if (type === "seance" && isNouveauNom && nouveauNom.trim()) {
+        getNomsFrequents();
+      }
       
     } catch (error) {
       console.error("Erreur lors de l'enregistrement:", error);
@@ -248,26 +326,99 @@ export default function PaiementsPage() {
                     </label>
                     <input
                       type="date"
-                      className="w-full border-2 border-gray-200 p-4 rounded-xl focus:outline-none focus:border-purple-500 focus:ring-4 focus:ring-purple-100 transition-all bg-gray-50 focus:bg-white"
+                      className="w-full border-2 text-gray-500 border-gray-200 p-4 rounded-xl focus:outline-none focus:border-purple-500 focus:ring-4 focus:ring-purple-100 transition-all bg-gray-50 focus:bg-white"
                       value={dateSeance}
                       onChange={(e) => setDateSeance(e.target.value)}
                     />
                   </div>
                 )}
 
-                <div className="space-y-2">
-                  <label className="text-gray-700 font-semibold flex items-center gap-2">
-                    <User className="w-4 h-4 text-gray-500" />
-                    Nom du client
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="Ex: Jean Dupont (optionnel pour séance)"
-                    className="w-full border-2 border-gray-200 p-4 rounded-xl focus:outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100 transition-all bg-gray-50 focus:bg-white"
-                    value={nom}
-                    onChange={(e) => setNom(e.target.value)}
-                  />
-                </div>
+                {/* Gestion du nom - différent selon le type */}
+                {type === "abonnement" ? (
+                  <div className="space-y-2">
+                    <label className="text-gray-700 font-semibold flex items-center gap-2">
+                      <User className="w-4 h-4 text-gray-500" />
+                      Nom du client
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="Ex: Ndeye seck "
+                      className="w-full border-2 text-gray-500 border-gray-200 p-4 rounded-xl focus:outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100 transition-all bg-gray-50 focus:bg-white"
+                      value={nom}
+                      onChange={(e) => setNom(e.target.value)}
+                    />
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    <label className="text-gray-700 font-semibold flex items-center gap-2">
+                      <User className="w-4 h-4 text-gray-500" />
+                      Nom du client
+                    </label>
+                    
+                    {/* Boutons de choix */}
+                    <div className="grid grid-cols-2 gap-3">
+                      <button
+                        type="button"
+                        onClick={() => setIsNouveauNom(false)}
+                        className={`p-3 rounded-xl border-2 transition-all duration-300 flex items-center justify-center gap-2 ${
+                          !isNouveauNom 
+                            ? "border-blue-500 bg-blue-50 text-blue-700" 
+                            : "border-gray-200 bg-white text-gray-600 hover:border-gray-300"
+                        }`}
+                      >
+                        <UserCheck className="w-4 h-4" />
+                        <span className="text-sm font-medium">Client habituel</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setIsNouveauNom(true)}
+                        className={`p-3 rounded-xl border-2 transition-all duration-300 flex items-center justify-center gap-2 ${
+                          isNouveauNom 
+                            ? "border-green-500 bg-green-50 text-green-700" 
+                            : "border-gray-200 bg-white text-gray-600 hover:border-gray-300"
+                        }`}
+                      >
+                        <Plus className="w-4 h-4" />
+                        <span className="text-sm font-medium">Nouveau client</span>
+                      </button>
+                    </div>
+
+                    {/* Champ conditionnel */}
+                    {!isNouveauNom ? (
+                      <div className="space-y-2">
+                        <select
+                          className="w-full border-2 text-gray-500 border-gray-200 p-4 rounded-xl focus:outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100 transition-all bg-gray-50 focus:bg-white"
+                          value={nomSelectionne}
+                          onChange={(e) => setNomSelectionne(e.target.value)}
+                        >
+                          <option value="">Sélectionnez un client habituel</option>
+                          {loadingNoms ? (
+                            <option disabled>Chargement...</option>
+                          ) : (
+                            nomsFrequents.map((client, index) => (
+                              <option key={index} value={client.nom}>
+                                {client.nom} ({client.count} séance{client.count > 1 ? 's' : ''})
+                              </option>
+                            ))
+                          )}
+                        </select>
+                        {nomsFrequents.length === 0 && !loadingNoms && (
+                          <p className="text-sm text-gray-500 bg-gray-50 p-3 rounded-lg">
+                            Aucun client habituel trouvé. Commencez par ajouter un nouveau client.
+                          </p>
+                        )}
+                      </div>
+                    ) : (
+                      <input
+                        type="text"
+                        placeholder="Ex: Marie Dubois"
+                        className="w-full border-2 text-gray-500 border-gray-200 p-4 rounded-xl focus:outline-none focus:border-green-500 focus:ring-4 focus:ring-green-100 transition-all bg-gray-50 focus:bg-white"
+                        value={nouveauNom}
+                        onChange={(e) => setNouveauNom(e.target.value)}
+                      />
+                    )}
+                  </div>
+                )}
 
                 {type === "abonnement" && (
                   <div className="space-y-2">
@@ -276,7 +427,7 @@ export default function PaiementsPage() {
                       Durée de l&apos;abonnement
                     </label>
                     <select
-                      className="w-full border-2 border-gray-200 p-4 rounded-xl focus:outline-none focus:border-purple-500 focus:ring-4 focus:ring-purple-100 transition-all bg-gray-50 focus:bg-white"
+                      className="w-full border-2 text-gray-500 border-gray-200 p-4 rounded-xl focus:outline-none focus:border-purple-500 focus:ring-4 focus:ring-purple-100 transition-all bg-gray-50 focus:bg-white"
                       value={duree}
                       onChange={(e) => setDuree(e.target.value)}
                     >
@@ -295,7 +446,7 @@ export default function PaiementsPage() {
                     <input
                       type="number"
                       placeholder="Ex: 20000"
-                      className="w-full border-2 border-gray-200 p-4 rounded-xl focus:outline-none focus:border-green-500 focus:ring-4 focus:ring-green-100 transition-all bg-gray-50 focus:bg-white pr-16"
+                      className="w-full text-gray-500 border-2 border-gray-200 p-4 rounded-xl focus:outline-none focus:border-green-500 focus:ring-4 focus:ring-green-100 transition-all bg-gray-50 focus:bg-white pr-16"
                       value={montant}
                       onChange={(e) => setMontant(e.target.value)}
                       required

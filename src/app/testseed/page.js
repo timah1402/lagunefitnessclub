@@ -7,7 +7,7 @@ export default function TestSeedPage() {
     try {
       // Abonnement fictif
       await addDoc(collection(db, "abonnements"), {
-        nom_client: "Jean Dupont",
+        nom_client: "Ndeye Seck",
         date_debut: new Date("2025-06-01T08:00:00Z").toISOString(),
         date_fin: new Date("2025-07-01T08:00:00Z").toISOString(),
         montant: 20000,
@@ -24,7 +24,7 @@ export default function TestSeedPage() {
 
       // Présences fictives
       await addDoc(collection(db, "presences"), {
-        nom_client: "Jean Dupont",
+        nom_client: "Ndeye seck",
         date: new Date("2025-06-29T17:40:00Z").toISOString(),
         type: "abonnement",
         createdAt: new Date(),
